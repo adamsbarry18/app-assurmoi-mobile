@@ -1,0 +1,90 @@
+import { Redirect, Tabs } from 'expo-router'
+import { View } from 'react-native'
+import { ActivityIndicator, useTheme } from 'react-native-paper'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { useAuth } from '@/features/auth'
+import { BrandColors } from '@/constants/brand'
+
+export default function MainTabsLayout () {
+  const { user, isReady } = useAuth()
+  const theme = useTheme()
+
+  if (!isReady) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: theme.colors.background
+        }}
+      >
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    )
+  }
+
+  if (!user) {
+    return <Redirect href="/login" />
+  }
+
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: true,
+        headerStyle: { backgroundColor: theme.colors.background },
+        headerTitleStyle: { fontWeight: '600', color: theme.colors.onSurface },
+        headerShadowVisible: false,
+        tabBarActiveTintColor: BrandColors.primary,
+        tabBarInactiveTintColor: theme.colors.outline,
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
+        tabBarStyle: {
+          backgroundColor: '#fff',
+          borderTopWidth: 1,
+          borderTopColor: '#E8ECF0',
+          paddingTop: 4,
+          height: 60
+        }
+      }}
+    >
+      <Tabs.Screen
+        name="home"
+        options={{
+          title: 'Accueil',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="home-outline" size={size} color={color} />
+          )
+        }}
+      />
+      <Tabs.Screen
+        name="sinistres"
+        options={{
+          title: 'Sinistres',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="alert-octagon-outline" size={size} color={color} />
+          )
+        }}
+      />
+      <Tabs.Screen
+        name="dossiers"
+        options={{
+          title: 'Dossiers',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="folder-text-outline" size={size} color={color} />
+          )
+        }}
+      />
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: 'Plus',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="dots-horizontal" size={size} color={color} />
+          )
+        }}
+      />
+    </Tabs>
+  )
+}
