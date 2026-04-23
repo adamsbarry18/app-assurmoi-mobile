@@ -6,24 +6,24 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Button, Text, useTheme } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '@/features/auth'
+import { useNotificationPanel } from '@/features/notification/NotificationPanelContext'
+import { NotificationHeaderButton } from '@/components/notifications/NotificationHeaderButton'
 import { getQuickActions, type QuickAction } from '@/lib/dashboardConfig'
 import { roleLabel } from '@/lib/roleAccess'
 import { BrandColors } from '@/constants/brand'
 import type { AuthUser } from '@/lib/auth/types'
 
-function getInitials (u: AuthUser): string {
+function getInitials(u: AuthUser): string {
   if (u.first_name?.trim() || u.last_name?.trim()) {
     const a = (u.first_name?.trim()?.[0] ?? '').toUpperCase()
     const b = (u.last_name?.trim()?.[0] ?? '').toUpperCase()
     if (a && b) return `${a}${b}`
     if (a) return a + (a.length < 2 ? (u.last_name?.[0] ?? u.username[0] ?? '') : '')
   }
-  return (u.username || '?')
-    .slice(0, 2)
-    .toUpperCase()
+  return (u.username || '?').slice(0, 2).toUpperCase()
 }
 
-function getDisplayName (u: AuthUser): string {
+function getDisplayName(u: AuthUser): string {
   if (u.first_name || u.last_name) {
     return [u.first_name, u.last_name].filter(Boolean).join(' ').trim()
   }
@@ -41,7 +41,7 @@ type MenuRowProps = {
   showChevron?: boolean
 }
 
-function MenuRow ({
+function MenuRow({
   title,
   subtitle,
   icon,
@@ -78,10 +78,7 @@ function MenuRow ({
         <MaterialCommunityIcons name={icon} size={24} color={iconColor} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text
-          variant="titleSmall"
-          style={{ fontWeight: '600', color: theme.colors.onSurface }}
-        >
+        <Text variant="titleSmall" style={{ fontWeight: '600', color: theme.colors.onSurface }}>
           {title}
         </Text>
         {subtitle ? (
@@ -95,11 +92,7 @@ function MenuRow ({
         ) : null}
       </View>
       {showChevron && !disabled && (
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={22}
-          color={theme.colors.outline}
-        />
+        <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.outline} />
       )}
     </Pressable>
   )
@@ -110,7 +103,7 @@ type SectionCardProps = {
   children: React.ReactNode
 }
 
-function SectionCard ({ title, children }: SectionCardProps) {
+function SectionCard({ title, children }: SectionCardProps) {
   const theme = useTheme()
   return (
     <View
@@ -149,15 +142,28 @@ function SectionCard ({ title, children }: SectionCardProps) {
   )
 }
 
-export default function MoreTab () {
+export default function MoreTab() {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { user, logout, isReady } = useAuth()
+  const { open: openNotifications } = useNotificationPanel()
 
   useEffect(() => {
     if (isReady && !user) router.replace('/login')
   }, [isReady, user, router])
+
+  const onQuickAction = useCallback(
+    (a: QuickAction) => {
+      if (a.href) {
+        router.push(a.href as Href)
+        return
+      }
+      if (a.tab === 'claims') router.push('/claims' as Href)
+      else if (a.tab === 'folders') router.push('/folders' as Href)
+    },
+    [router]
+  )
 
   if (!user) return null
 
@@ -167,25 +173,13 @@ export default function MoreTab () {
   const containerC = theme.colors.primaryContainer
   const quickActions = getQuickActions(user.role)
 
-  const onQuickAction = useCallback(
-    (a: QuickAction) => {
-      if (a.href) {
-        router.push(a.href as Href)
-        return
-      }
-      if (a.tab === 'sinistres') router.push('/sinistres')
-      else if (a.tab === 'dossiers') router.push('/dossiers')
-    },
-    [router]
-  )
-
   const actionSubtitle: Record<string, string | undefined> = {
     users: 'Créer, consulter et désactiver les comptes',
-    sinistres: 'Espace sinistres et déclarations',
-    dossiers: 'Dossiers de prise en charge',
-    'mes-sinistres': 'Suivi de vos déclarations',
-    'mes-dossiers': 'Vos dossiers de prise en charge',
-    dossiers2: 'Dossiers dont vous avez le suivi'
+    claims: 'Espace sinistres et déclarations',
+    folders: 'Dossiers de prise en charge',
+    'my-claims': 'Suivi de vos déclarations',
+    'my-folders': 'Vos dossiers de prise en charge',
+    'folders-tracking': 'Dossiers dont vous avez le suivi'
   }
 
   return (
@@ -202,18 +196,27 @@ export default function MoreTab () {
           borderBottomRightRadius: 28
         }}
       >
-        <Text
+        <View
           style={{
-            color: 'rgba(255,255,255,0.9)',
-            fontSize: 12,
-            fontWeight: '600',
-            letterSpacing: 0.8,
-            marginBottom: 14,
-            textTransform: 'uppercase'
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 14
           }}
         >
-          Mon profil
-        </Text>
+          <Text
+            style={{
+              color: 'rgba(255,255,255,0.9)',
+              fontSize: 12,
+              fontWeight: '600',
+              letterSpacing: 0.8,
+              textTransform: 'uppercase'
+            }}
+          >
+            Mon profil
+          </Text>
+          <NotificationHeaderButton variant="onPrimary" />
+        </View>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View
             style={{
@@ -271,8 +274,20 @@ export default function MoreTab () {
         showsVerticalScrollIndicator={false}
       >
         <SectionCard title="Navigation">
+          <MenuRow
+            title="Alertes"
+            subtitle="Rappels, validations et échéances"
+            icon="bell-outline"
+            iconBg={containerC}
+            iconColor={primaryC}
+            onPress={openNotifications}
+            showChevron
+          />
           {quickActions.length === 0 ? (
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}>
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
+            >
               Aucun raccourci pour votre rôle. Utilisez les onglets en bas d’écran.
             </Text>
           ) : null}
@@ -292,8 +307,17 @@ export default function MoreTab () {
 
         <SectionCard title="Compte & application">
           <MenuRow
+            title="Mon profil"
+            subtitle="Nom, prénom, mot de passe"
+            icon="account-edit-outline"
+            iconBg={containerC}
+            iconColor={primaryC}
+            onPress={() => router.push('/profile')}
+            showChevron
+          />
+          <MenuRow
             title="Paramètres"
-            subtitle="Langue, notifications, sécurité — bientôt"
+            subtitle="Langue, sécurité — bientôt"
             icon="cog-outline"
             iconBg={theme.colors.surfaceVariant}
             iconColor={theme.colors.outline}

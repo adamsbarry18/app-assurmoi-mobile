@@ -2,13 +2,13 @@ import { getApiBaseUrl } from '@/lib/config'
 import { ApiRequestError } from '@/lib/apiErrors'
 import type { AuthUser, LoginResponse, MeResponse, RefreshResponse } from './types'
 
-function buildUrl (path: string): string {
+function buildUrl(path: string): string {
   const base = getApiBaseUrl().replace(/\/$/, '')
   const p = path.startsWith('/') ? path : `/${path}`
   return `${base}${p}`
 }
 
-async function parseJsonOrThrow (res: Response): Promise<unknown> {
+async function parseJsonOrThrow(res: Response): Promise<unknown> {
   const text = await res.text()
   if (!text) return null
   try {
@@ -18,10 +18,7 @@ async function parseJsonOrThrow (res: Response): Promise<unknown> {
   }
 }
 
-export async function loginRequest (
-  email: string,
-  password: string
-): Promise<LoginResponse> {
+export async function loginRequest(email: string, password: string): Promise<LoginResponse> {
   const res = await fetch(buildUrl('/api/auth/login'), {
     method: 'POST',
     headers: {
@@ -42,7 +39,7 @@ export async function loginRequest (
   return data as LoginResponse
 }
 
-export async function refreshRequest (refreshToken: string): Promise<RefreshResponse> {
+export async function refreshRequest(refreshToken: string): Promise<RefreshResponse> {
   const res = await fetch(buildUrl('/api/auth/refresh'), {
     method: 'POST',
     headers: {
@@ -63,7 +60,7 @@ export async function refreshRequest (refreshToken: string): Promise<RefreshResp
   return data as RefreshResponse
 }
 
-export async function meRequest (accessToken: string): Promise<AuthUser> {
+export async function meRequest(accessToken: string): Promise<AuthUser> {
   const res = await fetch(buildUrl('/api/auth/me'), {
     method: 'GET',
     headers: {
@@ -83,7 +80,7 @@ export async function meRequest (accessToken: string): Promise<AuthUser> {
   return (data as MeResponse).data
 }
 
-export async function forgotPasswordRequest (email: string): Promise<void> {
+export async function forgotPasswordRequest(email: string): Promise<void> {
   const res = await fetch(buildUrl('/api/auth/forgot-password'), {
     method: 'POST',
     headers: {
@@ -103,7 +100,27 @@ export async function forgotPasswordRequest (email: string): Promise<void> {
   }
 }
 
-export async function logoutRequest (accessToken: string): Promise<void> {
+export async function resetPasswordRequest(token: string, password: string): Promise<void> {
+  const res = await fetch(buildUrl('/api/auth/reset-password'), {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ token: token.trim(), password })
+  })
+  const data = await parseJsonOrThrow(res)
+  if (!res.ok) {
+    const body = data as { message?: string }
+    throw new ApiRequestError(
+      body?.message || `HTTP ${res.status}`,
+      res.status,
+      body as { message?: string; code?: string }
+    )
+  }
+}
+
+export async function logoutRequest(accessToken: string): Promise<void> {
   const res = await fetch(buildUrl('/api/auth/logout'), {
     method: 'POST',
     headers: {
@@ -114,9 +131,6 @@ export async function logoutRequest (accessToken: string): Promise<void> {
   if (!res.ok && res.status !== 401) {
     const data = await parseJsonOrThrow(res)
     const body = data as { message?: string }
-    throw new ApiRequestError(
-      body?.message || `HTTP ${res.status}`,
-      res.status
-    )
+    throw new ApiRequestError(body?.message || `HTTP ${res.status}`, res.status)
   }
 }

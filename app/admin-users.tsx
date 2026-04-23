@@ -1,54 +1,74 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { RefreshControl, ScrollView, useWindowDimensions, View } from 'react-native'
-import { useFocusEffect, useNavigation, useRouter, type Href } from 'expo-router'
+import { Alert, RefreshControl, ScrollView, useWindowDimensions, View } from 'react-native'
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router'
 import {
   ActivityIndicator,
+  Button,
   DataTable,
+  Dialog,
   FAB,
   IconButton,
+  Menu,
+  Portal,
   Searchbar,
   Snackbar,
   Text,
+  TextInput,
   useTheme
 } from 'react-native-paper'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/features/auth'
 import { ApiRequestError } from '@/lib/api'
 import { consumeScreenFeedback } from '@/lib/screenFeedback'
-import { listUsers } from '@/lib/usersApi'
+import {
+  activateUserApi,
+  cancelInvitation,
+  deactivateUserApi,
+  listUsers,
+  resendInvitation,
+  sendInvite
+} from '@/lib/usersApi'
 import { roleLabel } from '@/lib/roleAccess'
-import type { AuthUser } from '@/lib/auth/types'
+import type { ListUserRow, ListInvitationRow, AuthUser } from '@/lib/auth/types'
+import { type UserRole } from '@/lib/roleAccess'
 import { BrandColors } from '@/constants/brand'
+import { RolePicker } from '@/components/RolePicker'
 
-const PAGE_SIZE = 8
-/** Délai après la dernière frappe avant appel API (recherche instantanée) */
+const PAGE_SIZE = 10
 const SEARCH_DEBOUNCE_MS = 280
-/** Marge horizontale commune (recherche + tableau) */
 const SCREEN_H_PAD = 20
 const CELL_H_PAD = 8
 
-function formatUserCell (u: AuthUser): string {
+function formatUserCell(u: ListUserRow): string {
+  if (u.kind === 'invitation') {
+    return u.email
+  }
   if (u.first_name || u.last_name) {
     return [u.first_name, u.last_name].filter(Boolean).join(' ')
   }
   return u.username
 }
 
-export default function AdminUsers () {
+function isUser(row: ListUserRow): row is AuthUser & { kind: 'user' } {
+  return row.kind === 'user'
+}
+
+function isInvitation(row: ListUserRow): row is ListInvitationRow {
+  return row.kind === 'invitation'
+}
+
+export default function AdminUsers() {
   const theme = useTheme()
   const navigation = useNavigation()
   const router = useRouter()
   const { user, logout, isReady } = useAuth()
   const { width } = useWindowDimensions()
-  /** Largeur utile = écran moins les marges latérales. */
   const tableWidth = Math.max(0, width - 2 * SCREEN_H_PAD)
 
-  const [rows, setRows] = useState<AuthUser[]>([])
+  const [rows, setRows] = useState<ListUserRow[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(0)
-  /** Filtre API (débouncé) */
   const [search, setSearch] = useState('')
-  /** Texte saisi en direct dans la barre */
   const [searchInput, setSearchInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [tableBusy, setTableBusy] = useState(false)
@@ -56,12 +76,26 @@ export default function AdminUsers () {
   const [error, setError] = useState<string | null>(null)
   const [listSnack, setListSnack] = useState<string | null>(null)
   const isFirstListLoad = useRef(true)
-  /** Un seul effet de debounce au 1er rendu : ne pas forcer `page=0` (pagination possible avant la fin du délai). */
   const isFirstSearchDebounce = useRef(true)
+
+  const [menuKey, setMenuKey] = useState<string | null>(null)
+  const [actionBusy, setActionBusy] = useState(false)
+
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState<UserRole>('INSURED')
+  const [inviteError, setInviteError] = useState<string | null>(null)
+  const [inviteSubmitting, setInviteSubmitting] = useState(false)
 
   const numberOfPages = Math.max(1, Math.ceil(total / PAGE_SIZE) || 1)
   const from = total === 0 ? 0 : page * PAGE_SIZE + 1
   const to = Math.min(total, (page + 1) * PAGE_SIZE)
+
+  const closeInviteModal = useCallback(() => {
+    if (inviteSubmitting) return
+    setInviteOpen(false)
+    setInviteError(null)
+  }, [inviteSubmitting])
 
   const fetchUsers = useCallback(
     async (mode: 'list' | 'refresh') => {
@@ -108,7 +142,6 @@ export default function AdminUsers () {
     }
   }, [isReady, user, router])
 
-  /** Recherche instantanée : filtre API après le dernier caractère (debounce). */
   useEffect(() => {
     const timer = setTimeout(() => {
       const q = searchInput.trim()
@@ -150,6 +183,111 @@ export default function AdminUsers () {
       )
     })
   }, [navigation, logout, router])
+
+  const onDeactivateUser = (id: number) => {
+    setMenuKey(null)
+    setActionBusy(true)
+    void (async () => {
+      try {
+        await deactivateUserApi(id)
+        setListSnack('Compte désactivé.')
+        await fetchUsers('list')
+      } catch (e) {
+        const m = e instanceof ApiRequestError ? e.message : 'Action impossible'
+        Alert.alert('Erreur', m)
+      } finally {
+        setActionBusy(false)
+      }
+    })()
+  }
+
+  const onActivateUser = (id: number) => {
+    setMenuKey(null)
+    setActionBusy(true)
+    void (async () => {
+      try {
+        await activateUserApi(id)
+        setListSnack('Compte réactivé.')
+        await fetchUsers('list')
+      } catch (e) {
+        const m = e instanceof ApiRequestError ? e.message : 'Action impossible'
+        Alert.alert('Erreur', m)
+      } finally {
+        setActionBusy(false)
+      }
+    })()
+  }
+
+  const onResendInvite = (id: number) => {
+    setMenuKey(null)
+    setActionBusy(true)
+    void (async () => {
+      try {
+        await resendInvitation(id)
+        setListSnack('Invitation renvoyée.')
+        await fetchUsers('list')
+      } catch (e) {
+        const m = e instanceof ApiRequestError ? e.message : 'Action impossible'
+        Alert.alert('Erreur', m)
+      } finally {
+        setActionBusy(false)
+      }
+    })()
+  }
+
+  const onCancelInvite = (id: number) => {
+    setMenuKey(null)
+    Alert.alert('Annuler l’invitation', 'Le lien ne sera plus valide pour ce message.', [
+      { text: 'Non', style: 'cancel' },
+      {
+        text: 'Annuler l’invitation',
+        style: 'destructive',
+        onPress: () => {
+          setActionBusy(true)
+          void (async () => {
+            try {
+              await cancelInvitation(id)
+              setListSnack('Invitation annulée.')
+              await fetchUsers('list')
+            } catch (e) {
+              const m = e instanceof ApiRequestError ? e.message : 'Action impossible'
+              Alert.alert('Erreur', m)
+            } finally {
+              setActionBusy(false)
+            }
+          })()
+        }
+      }
+    ])
+  }
+
+  const submitInvite = async () => {
+    setInviteError(null)
+    const em = inviteEmail.trim()
+    if (!em) {
+      setInviteError('Saisissez un e-mail.')
+      return
+    }
+    setInviteSubmitting(true)
+    try {
+      await sendInvite({ email: em, role: inviteRole })
+      setInviteOpen(false)
+      setInviteEmail('')
+      setInviteRole('INSURED')
+      setListSnack('Invitation envoyée.')
+      await fetchUsers('list')
+    } catch (e) {
+      setInviteError(
+        e instanceof ApiRequestError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : 'Envoi impossible'
+      )
+    } finally {
+      setInviteSubmitting(false)
+    }
+  }
 
   if (!user || user.role !== 'ADMIN') {
     return null
@@ -207,125 +345,274 @@ export default function AdminUsers () {
               </View>
             )}
             <ScrollView
-            contentContainerStyle={{ minWidth: tableWidth, paddingBottom: 8 }}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => void fetchUsers('refresh')}
-              />
-            }
-          >
-            <DataTable
-              style={{ width: tableWidth, backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden' }}
+              contentContainerStyle={{ minWidth: tableWidth, paddingBottom: 8 }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={() => void fetchUsers('refresh')}
+                />
+              }
             >
-              <DataTable.Header
-                style={{ backgroundColor: theme.colors.primaryContainer, borderBottomWidth: 0 }}
+              <DataTable
+                style={{
+                  width: tableWidth,
+                  backgroundColor: '#fff',
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  opacity: actionBusy ? 0.7 : 1
+                }}
               >
-                <DataTable.Title
-                  textStyle={{ fontWeight: '700', color: theme.colors.onPrimaryContainer, fontSize: 13 }}
-                  style={{ flex: 1, minWidth: 100, paddingLeft: CELL_H_PAD, paddingRight: 4 }}
+                <DataTable.Header
+                  style={{ backgroundColor: theme.colors.primaryContainer, borderBottomWidth: 0 }}
                 >
-                  Utilisateur
-                </DataTable.Title>
-                <DataTable.Title
-                  textStyle={{ fontWeight: '700', color: theme.colors.onPrimaryContainer, fontSize: 13 }}
-                  style={{ flex: 1.2, minWidth: 120, paddingHorizontal: 4 }}
-                >
-                  Rôle
-                </DataTable.Title>
-                <DataTable.Title
-                  textStyle={{ fontWeight: '700', color: theme.colors.onPrimaryContainer, fontSize: 13 }}
-                  style={{ width: 88, minWidth: 88, maxWidth: 88, flex: 0, paddingRight: CELL_H_PAD, paddingLeft: 4 }}
-                >
-                  Statut
-                </DataTable.Title>
-              </DataTable.Header>
-              {rows.length === 0 ? (
-                <DataTable.Row>
-                  <DataTable.Cell style={{ paddingVertical: 20, paddingHorizontal: CELL_H_PAD }}>
-                    <Text style={{ opacity: 0.6 }}>Aucun résultat.</Text>
-                  </DataTable.Cell>
-                </DataTable.Row>
-              ) : (
-                rows.map((item) => (
-                  <DataTable.Row
-                    key={item.id}
-                    onPress={() => router.push(`/admin-user/${item.id}` as Href)}
+                  <DataTable.Title
+                    textStyle={{
+                      fontWeight: '700',
+                      color: theme.colors.onPrimaryContainer,
+                      fontSize: 12
+                    }}
+                    style={{ flex: 1, minWidth: 72, paddingLeft: CELL_H_PAD, paddingRight: 4 }}
+                  >
+                    Utilisateur
+                  </DataTable.Title>
+                  <DataTable.Title
+                    textStyle={{
+                      fontWeight: '700',
+                      color: theme.colors.onPrimaryContainer,
+                      fontSize: 12
+                    }}
+                    style={{ flex: 0.9, minWidth: 80, paddingHorizontal: 2 }}
+                  >
+                    Rôle
+                  </DataTable.Title>
+                  <DataTable.Title
+                    textStyle={{
+                      fontWeight: '700',
+                      color: theme.colors.onPrimaryContainer,
+                      fontSize: 12
+                    }}
                     style={{
-                      borderBottomWidth: 1,
-                      borderBottomColor: 'rgba(15, 23, 42, 0.06)'
+                      width: 70,
+                      minWidth: 64,
+                      maxWidth: 70,
+                      flex: 0,
+                      paddingLeft: 2,
+                      paddingRight: 2
                     }}
                   >
-                    <DataTable.Cell
-                      textStyle={{ fontSize: 14, fontWeight: '500' }}
-                      style={{
-                        flex: 1,
-                        minWidth: 100,
-                        paddingLeft: CELL_H_PAD,
-                        paddingRight: 4,
-                        paddingVertical: 10
-                      }}
-                    >
-                      {formatUserCell(item)}
-                    </DataTable.Cell>
-                    <DataTable.Cell
-                      textStyle={{ fontSize: 12.5 }}
-                      style={{
-                        flex: 1.2,
-                        minWidth: 120,
-                        flexWrap: 'wrap',
-                        paddingHorizontal: 4,
-                        paddingVertical: 10
-                      }}
-                    >
-                      {roleLabel(item.role)}
-                    </DataTable.Cell>
-                    <DataTable.Cell
-                      style={{
-                        width: 88,
-                        minWidth: 88,
-                        maxWidth: 88,
-                        flex: 0,
-                        paddingRight: CELL_H_PAD,
-                        paddingLeft: 4,
-                        paddingVertical: 10
-                      }}
-                    >
-                      <View
-                        style={{
-                          backgroundColor: item.is_active
-                            ? 'rgba(0, 105, 92, 0.12)'
-                            : 'rgba(183, 28, 28, 0.12)',
-                          paddingHorizontal: 8,
-                          paddingVertical: 4,
-                          borderRadius: 8,
-                          alignSelf: 'flex-start'
-                        }}
-                      >
-                        <Text
-                          style={{
-                            fontSize: 11,
-                            fontWeight: '600',
-                            color: item.is_active ? '#00695C' : theme.colors.error
-                          }}
-                        >
-                          {item.is_active ? 'actif' : 'inactif'}
-                        </Text>
-                      </View>
+                    Statut
+                  </DataTable.Title>
+                  <DataTable.Title
+                    textStyle={{
+                      fontWeight: '700',
+                      color: theme.colors.onPrimaryContainer,
+                      fontSize: 11
+                    }}
+                    style={{
+                      width: 72,
+                      minWidth: 72,
+                      maxWidth: 88,
+                      flex: 0,
+                      paddingRight: CELL_H_PAD
+                    }}
+                    accessibilityLabel="Actions sur la ligne"
+                  >
+                    Actions
+                  </DataTable.Title>
+                </DataTable.Header>
+                {rows.length === 0 ? (
+                  <DataTable.Row>
+                    <DataTable.Cell style={{ paddingVertical: 20, paddingHorizontal: CELL_H_PAD }}>
+                      <Text style={{ opacity: 0.6 }}>Aucun résultat.</Text>
                     </DataTable.Cell>
                   </DataTable.Row>
-                ))
-              )}
+                ) : (
+                  rows.map((item) => {
+                    const k = item.kind === 'user' ? `u-${item.id}` : `i-${item.id}`
+                    const mKey = k
+                    return (
+                      <DataTable.Row
+                        key={k}
+                        style={{
+                          borderBottomWidth: 1,
+                          borderBottomColor: 'rgba(15, 23, 42, 0.06)'
+                        }}
+                      >
+                        <DataTable.Cell
+                          textStyle={{ fontSize: 12.5, fontWeight: '500' }}
+                          style={{
+                            flex: 1,
+                            minWidth: 72,
+                            paddingLeft: CELL_H_PAD,
+                            paddingRight: 4,
+                            paddingVertical: 8
+                          }}
+                        >
+                          {formatUserCell(item)}
+                        </DataTable.Cell>
+                        <DataTable.Cell
+                          textStyle={{ fontSize: 11.5 }}
+                          style={{
+                            flex: 0.9,
+                            minWidth: 80,
+                            paddingHorizontal: 2,
+                            paddingVertical: 8
+                          }}
+                        >
+                          {roleLabel(item.role)}
+                        </DataTable.Cell>
+                        <DataTable.Cell
+                          style={{
+                            width: 70,
+                            minWidth: 64,
+                            maxWidth: 70,
+                            flex: 0,
+                            paddingLeft: 2,
+                            paddingRight: 2,
+                            paddingVertical: 8
+                          }}
+                        >
+                          {isInvitation(item) ? (
+                            <View
+                              style={{
+                                backgroundColor: 'rgba(0, 87, 183, 0.12)',
+                                paddingHorizontal: 6,
+                                paddingVertical: 3,
+                                borderRadius: 6,
+                                alignSelf: 'flex-start'
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontSize: 10.5,
+                                  fontWeight: '600',
+                                  color: '#0057B7'
+                                }}
+                              >
+                                en attente
+                              </Text>
+                            </View>
+                          ) : (
+                            <View
+                              style={{
+                                backgroundColor: item.is_active
+                                  ? 'rgba(0, 105, 92, 0.12)'
+                                  : 'rgba(183, 28, 28, 0.12)',
+                                paddingHorizontal: 6,
+                                paddingVertical: 3,
+                                borderRadius: 6,
+                                alignSelf: 'flex-start'
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontSize: 10.5,
+                                  fontWeight: '600',
+                                  color: item.is_active ? '#00695C' : theme.colors.error
+                                }}
+                              >
+                                {item.is_active ? 'actif' : 'inactif'}
+                              </Text>
+                            </View>
+                          )}
+                        </DataTable.Cell>
+                        <DataTable.Cell
+                          style={{
+                            width: 72,
+                            minWidth: 72,
+                            maxWidth: 88,
+                            flex: 0,
+                            paddingRight: 4,
+                            paddingVertical: 0,
+                            justifyContent: 'center',
+                            alignItems: 'center'
+                          }}
+                        >
+                          {(isUser(item) && user.id !== item.id) ||
+                          (isInvitation(item) && item.status === 'pending') ? (
+                            <Menu
+                              visible={menuKey === mKey}
+                              onDismiss={() => setMenuKey(null)}
+                              anchor={
+                                <IconButton
+                                  icon="dots-vertical"
+                                  size={20}
+                                  style={{ margin: 0 }}
+                                  onPress={() => setMenuKey(mKey === menuKey ? null : mKey)}
+                                />
+                              }
+                            >
+                              {isUser(item) && user.id !== item.id && item.is_active ? (
+                                <Menu.Item
+                                  onPress={() => {
+                                    setMenuKey(null)
+                                    Alert.alert(
+                                      'Désactiver le compte',
+                                      'Cet utilisateur ne pourra plus se connecter.',
+                                      [
+                                        { text: 'Retour', style: 'cancel' },
+                                        {
+                                          text: 'Désactiver',
+                                          style: 'destructive',
+                                          onPress: () => onDeactivateUser(item.id)
+                                        }
+                                      ]
+                                    )
+                                  }}
+                                  title="Désactiver"
+                                />
+                              ) : null}
+                              {isUser(item) && user.id !== item.id && !item.is_active ? (
+                                <Menu.Item
+                                  onPress={() => {
+                                    setMenuKey(null)
+                                    Alert.alert(
+                                      'Réactiver le compte',
+                                      'Cet utilisateur pourra de nouveau se connecter.',
+                                      [
+                                        { text: 'Retour', style: 'cancel' },
+                                        {
+                                          text: 'Réactiver',
+                                          onPress: () => onActivateUser(item.id)
+                                        }
+                                      ]
+                                    )
+                                  }}
+                                  title="Réactiver"
+                                />
+                              ) : null}
+                              {isInvitation(item) && item.status === 'pending' ? (
+                                <>
+                                  <Menu.Item
+                                    onPress={() => onResendInvite(item.id)}
+                                    title="Renvoyer l’invitation"
+                                  />
+                                  <Menu.Item
+                                    onPress={() => onCancelInvite(item.id)}
+                                    title="Annuler l’invitation"
+                                    titleStyle={{ color: theme.colors.error }}
+                                  />
+                                </>
+                              ) : null}
+                            </Menu>
+                          ) : (
+                            <View style={{ width: 48, height: 40 }} />
+                          )}
+                        </DataTable.Cell>
+                      </DataTable.Row>
+                    )
+                  })
+                )}
 
-              <DataTable.Pagination
-                page={page}
-                numberOfPages={numberOfPages}
-                onPageChange={setPage}
-                label={total === 0 ? '0 enregistrement' : `${from} – ${to} sur ${total}`}
-                showFastPaginationControls
-                style={{ backgroundColor: theme.colors.surfaceVariant }}
-              />
-            </DataTable>
+                <DataTable.Pagination
+                  page={page}
+                  numberOfPages={numberOfPages}
+                  onPageChange={setPage}
+                  label={total === 0 ? '0 enregistrement' : `${from} – ${to} sur ${total}`}
+                  showFastPaginationControls
+                  style={{ backgroundColor: theme.colors.surfaceVariant }}
+                />
+              </DataTable>
             </ScrollView>
           </View>
         )}
@@ -342,17 +629,91 @@ export default function AdminUsers () {
       </Snackbar>
 
       <FAB
-        icon="account-plus"
+        icon="email-plus"
         style={{
           position: 'absolute',
           right: SCREEN_H_PAD,
           bottom: 16,
           backgroundColor: theme.colors.primaryContainer
         }}
-        onPress={() => router.push('/admin-user-create' as Href)}
+        onPress={() => {
+          setInviteError(null)
+          setInviteOpen(true)
+        }}
         color={BrandColors.primary}
-        label="Créer"
+        label="Inviter"
       />
+
+      <Portal>
+        <Dialog
+          visible={inviteOpen}
+          onDismiss={closeInviteModal}
+          style={{ backgroundColor: theme.colors.background, borderRadius: 16 }}
+        >
+          <Dialog.Title>Inviter un membre</Dialog.Title>
+          <Dialog.Content>
+            {inviteError ? (
+              <Text style={{ color: theme.colors.error, marginBottom: 8 }}>{inviteError}</Text>
+            ) : null}
+            <TextInput
+              label="E-mail *"
+              value={inviteEmail}
+              onChangeText={setInviteEmail}
+              mode="outlined"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              style={{ marginBottom: 12 }}
+            />
+            <RolePicker
+              label="Rôle *"
+              value={inviteRole}
+              onChange={setInviteRole}
+              presentation="modal"
+              style={{ marginBottom: 12 }}
+            />
+            <View
+              style={{
+                backgroundColor: 'rgba(0, 87, 183, 0.1)',
+                borderRadius: 8,
+                padding: 10,
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                gap: 8
+              }}
+            >
+              <Text style={{ fontSize: 16 }}>✉</Text>
+              <Text
+                style={{
+                  flex: 1,
+                  fontSize: 13,
+                  color: theme.colors.onSurfaceVariant,
+                  lineHeight: 20
+                }}
+              >
+                Un e-mail d’invitation avec un lien pour finaliser le compte sera envoyé à cette
+                adresse.
+              </Text>
+            </View>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={closeInviteModal} disabled={inviteSubmitting}>
+              Annuler
+            </Button>
+            <Button
+              mode="contained"
+              onPress={() => {
+                if (inviteSubmitting) return
+                void submitInvite()
+              }}
+              disabled={inviteSubmitting}
+              loading={inviteSubmitting}
+              buttonColor={BrandColors.primary}
+            >
+              Inviter
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </SafeAreaView>
   )
 }

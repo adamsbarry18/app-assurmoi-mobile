@@ -18,14 +18,14 @@ export type ApiWelcomePayload = {
   notifications: string
 }
 
-function buildUrl (path: string): string {
+function buildUrl(path: string): string {
   const base = getApiBaseUrl()
   if (!path || path === '/') return `${base}/`
   const p = path.startsWith('/') ? path : `/${path}`
   return `${base}${p}`
 }
 
-function parseBody (text: string): unknown {
+function parseBody(text: string): unknown {
   if (!text) return null
   try {
     return JSON.parse(text) as unknown
@@ -34,7 +34,7 @@ function parseBody (text: string): unknown {
   }
 }
 
-function throwIfNotOk (res: Response, data: unknown): void {
+function throwIfNotOk(res: Response, data: unknown): void {
   if (res.ok) return
   const body = data as ApiErrorBody | undefined
   const msg =
@@ -47,10 +47,7 @@ function throwIfNotOk (res: Response, data: unknown): void {
 /**
  * Appel public (sans auth), ex. GET `/` ou ressource anonyme.
  */
-export async function apiFetch<T> (
-  path: string,
-  init?: RequestInit
-): Promise<T> {
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const url = buildUrl(path)
   const headers = new Headers(init?.headers)
   if (!headers.has('Accept')) headers.set('Accept', 'application/json')
@@ -68,10 +65,10 @@ export async function apiFetch<T> (
  * Appel vers `/api/...` avec **Authorization: Bearer** (jetons lus via SecureStore, comme le contexte d’auth).
  * Sur **401**, tente un **refresh** des jetons une fois, puis relance la requête.
  */
-export async function apiFetchWithAuth<T> (path: string, init?: RequestInit): Promise<T> {
+export async function apiFetchWithAuth<T>(path: string, init?: RequestInit): Promise<T> {
   const url = buildUrl(path)
 
-  async function doRequest (access: string) {
+  async function doRequest(access: string) {
     const headers = new Headers(init?.headers)
     if (!headers.has('Accept')) headers.set('Accept', 'application/json')
     headers.set('Authorization', `Bearer ${access}`)
@@ -123,6 +120,6 @@ export async function apiFetchWithAuth<T> (path: string, init?: RequestInit): Pr
 }
 
 /** GET `/` — message d’accueil (public) */
-export async function getApiRoot (): Promise<ApiWelcomePayload> {
+export async function getApiRoot(): Promise<ApiWelcomePayload> {
   return apiFetch<ApiWelcomePayload>('/')
 }

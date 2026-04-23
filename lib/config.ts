@@ -6,7 +6,7 @@ import { Platform } from 'react-native'
  * Pour **Expo Web** + API en Docker sur la même machine : `http://localhost:3000`
  * (éviter une IP LAN dans le navigateur si l’API est sur le même poste).
  */
-export function getApiBaseUrl (): string {
+export function getApiBaseUrl(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '')
   if (fromEnv) return fromEnv
 

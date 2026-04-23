@@ -6,7 +6,7 @@ const KEY_REFRESH = 'assurmoi.refreshToken'
 
 const isWeb = Platform.OS === 'web'
 
-async function getItem (key: string): Promise<string | null> {
+async function getItem(key: string): Promise<string | null> {
   if (isWeb) {
     try {
       if (typeof globalThis === 'undefined' || !('localStorage' in globalThis)) {
@@ -24,7 +24,7 @@ async function getItem (key: string): Promise<string | null> {
   }
 }
 
-async function setItem (key: string, value: string): Promise<void> {
+async function setItem(key: string, value: string): Promise<void> {
   if (isWeb) {
     if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
       globalThis.localStorage.setItem(key, value)
@@ -36,34 +36,38 @@ async function setItem (key: string, value: string): Promise<void> {
   })
 }
 
-async function removeItem (key: string): Promise<void> {
+async function removeItem(key: string): Promise<void> {
   if (isWeb) {
     try {
       if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
         globalThis.localStorage.removeItem(key)
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return
   }
   try {
     await SecureStore.deleteItemAsync(key)
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
-export async function getAccessToken (): Promise<string | null> {
+export async function getAccessToken(): Promise<string | null> {
   return getItem(KEY_ACCESS)
 }
 
-export async function getRefreshToken (): Promise<string | null> {
+export async function getRefreshToken(): Promise<string | null> {
   return getItem(KEY_REFRESH)
 }
 
-export async function setTokens (accessToken: string, refreshToken: string): Promise<void> {
+export async function setTokens(accessToken: string, refreshToken: string): Promise<void> {
   await setItem(KEY_ACCESS, accessToken)
   await setItem(KEY_REFRESH, refreshToken)
 }
 
-export async function clearTokens (): Promise<void> {
+export async function clearTokens(): Promise<void> {
   await removeItem(KEY_ACCESS)
   await removeItem(KEY_REFRESH)
 }

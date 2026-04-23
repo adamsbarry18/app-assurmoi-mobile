@@ -1,66 +1,31 @@
 import { apiFetchWithAuth } from '@/lib/api'
-import type { AuthUser } from '@/lib/auth/types'
+import type { AuthUser, ListUserRow } from '@/lib/auth/types'
+import type { ListMeta } from '@/lib/claimsTypes'
 
 export type ListUsersResponse = {
-  data: AuthUser[]
-  meta: { total: number; limit: number; offset: number }
+  data: ListUserRow[]
+  meta: ListMeta
 }
 
-export type CreateUserBody = {
-  username: string
-  email: string
-  password: string
-  role: string
-  first_name?: string | null
-  last_name?: string | null
-  is_active?: boolean
-}
-
-export async function listUsers (params?: {
-  limit?: number
-  offset?: number
+export async function listUsers(query: {
+  limit: number
+  offset: number
   search?: string
-  role?: string
-  is_active?: boolean
 }): Promise<ListUsersResponse> {
-  const q = new URLSearchParams()
-  if (params?.limit != null) q.set('limit', String(params.limit))
-  if (params?.offset != null) q.set('offset', String(params.offset))
-  if (params?.search) q.set('search', params.search)
-  if (params?.role) q.set('role', params.role)
-  if (params?.is_active !== undefined) {
-    q.set('is_active', params.is_active ? 'true' : 'false')
-  }
-  const suffix = q.toString() ? `?${q.toString()}` : ''
-  return apiFetchWithAuth<ListUsersResponse>(`/api/users${suffix}`)
+  const p = new URLSearchParams()
+  p.set('limit', String(query.limit))
+  p.set('offset', String(query.offset))
+  if (query.search?.trim()) p.set('search', query.search.trim())
+  return apiFetchWithAuth<ListUsersResponse>(`/api/users?${p.toString()}`)
 }
 
-export async function createUser (
-  body: CreateUserBody
-): Promise<{ data: AuthUser }> {
-  return apiFetchWithAuth<{ data: AuthUser }>('/api/users', {
-    method: 'POST',
-    body: JSON.stringify(body)
-  })
-}
-
-export type UpdateUserBody = {
-  username?: string
-  email?: string
-  password?: string
-  role?: string
-  first_name?: string | null
-  last_name?: string | null
-  is_active?: boolean
-}
-
-export async function getUserById (id: number): Promise<{ data: AuthUser }> {
-  return apiFetchWithAuth<{ data: AuthUser }>(`/api/users/${id}`)
-}
-
-export async function updateUser (
+export async function updateUser(
   id: number,
-  body: UpdateUserBody
+  body: {
+    first_name?: string | null
+    last_name?: string | null
+    password?: string
+  }
 ): Promise<{ data: AuthUser }> {
   return apiFetchWithAuth<{ data: AuthUser }>(`/api/users/${id}`, {
     method: 'PUT',
@@ -68,16 +33,57 @@ export async function updateUser (
   })
 }
 
-export async function deactivateUserApi (id: number): Promise<{
-  message: string
-  data: AuthUser
-}> {
+export async function activateUserApi(id: number): Promise<unknown> {
+  return apiFetchWithAuth(`/api/users/${id}/activate`, { method: 'PATCH' })
+}
+
+export async function deactivateUserApi(id: number): Promise<unknown> {
   return apiFetchWithAuth(`/api/users/${id}/deactivate`, { method: 'PATCH' })
 }
 
-export async function deleteUserApi (id: number): Promise<{
-  message: string
-  status: number
-}> {
-  return apiFetchWithAuth(`/api/users/${id}`, { method: 'DELETE' })
+export async function sendInvite(body: { email: string; role: string }): Promise<unknown> {
+  return apiFetchWithAuth('/api/auth/invite', {
+    method: 'POST',
+    body: JSON.stringify(body)
+  })
+}
+
+export async function resendInvitation(id: number): Promise<unknown> {
+  return apiFetchWithAuth(`/api/auth/invitations/${id}/resend`, {
+    method: 'POST'
+  })
+}
+
+export async function cancelInvitation(id: number): Promise<unknown> {
+  return apiFetchWithAuth(`/api/auth/invitations/${id}/cancel`, {
+    method: 'POST'
+  })
+}
+
+export type InsuredOptionsResponse = {
+  data: AuthUser[]
+}
+
+export async function fetchInsuredOptions(params?: {
+  search?: string
+  limit?: number
+}): Promise<InsuredOptionsResponse> {
+  const p = new URLSearchParams()
+  if (params?.search?.trim()) p.set('search', params.search.trim())
+  if (params?.limit != null) p.set('limit', String(params.limit))
+  const qs = p.toString()
+  return apiFetchWithAuth<InsuredOptionsResponse>(`/api/users/insured-options${qs ? `?${qs}` : ''}`)
+}
+
+export async function fetchTrackingOfficerOptions(params?: {
+  search?: string
+  limit?: number
+}): Promise<InsuredOptionsResponse> {
+  const p = new URLSearchParams()
+  if (params?.search?.trim()) p.set('search', params.search.trim())
+  if (params?.limit != null) p.set('limit', String(params.limit))
+  const qs = p.toString()
+  return apiFetchWithAuth<InsuredOptionsResponse>(
+    `/api/users/tracking-officer-options${qs ? `?${qs}` : ''}`
+  )
 }

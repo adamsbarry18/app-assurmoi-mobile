@@ -11,6 +11,24 @@ export type AuthUser = {
   updated_at?: string
 }
 
+/** Ligne « invitation en attente » dans la liste admin (GET /api/users) */
+export type ListInvitationRow = {
+  kind: 'invitation'
+  id: number
+  email: string
+  role: string
+  status: string
+  username: null
+  first_name: null
+  last_name: null
+  is_active: null
+  created_at?: string
+  updated_at?: string
+}
+
+export type ListUserRowUser = AuthUser & { kind: 'user' }
+export type ListUserRow = ListUserRowUser | ListInvitationRow
+
 export type LoginResponse = {
   accessToken: string
   refreshToken: string

@@ -1,28 +1,16 @@
-import { useEffect, useState } from 'react'
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  View
-} from 'react-native'
-import { useRouter } from 'expo-router'
+import { useCallback, useEffect, useState } from 'react'
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import {
-  Button,
-  HelperText,
-  Snackbar,
-  Text,
-  TextInput,
-  useTheme
-} from 'react-native-paper'
+import { Button, HelperText, Snackbar, Text, TextInput, useTheme } from 'react-native-paper'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/features/auth'
 import { BrandColors } from '@/constants/brand'
 import { ApiRequestError } from '@/lib/api'
+import { consumeScreenFeedback } from '@/lib/screenFeedback'
 
-export default function Login () {
+export default function Login() {
   const theme = useTheme()
   const router = useRouter()
   const { login, isSubmitting, user } = useAuth()
@@ -32,6 +20,7 @@ export default function Login () {
   const [secure, setSecure] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [snack, setSnack] = useState(false)
+  const [infoMessage, setInfoMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -39,8 +28,20 @@ export default function Login () {
     }
   }, [user, router])
 
-  async function onSubmit () {
+  useFocusEffect(
+    useCallback(() => {
+      const f = consumeScreenFeedback()
+      if (f?.message) {
+        setError(null)
+        setInfoMessage(f.message)
+        setSnack(true)
+      }
+    }, [])
+  )
+
+  async function onSubmit() {
     setError(null)
+    setInfoMessage(null)
     if (!email.trim() || !password) {
       setError('Renseignez l’e-mail (ou identifiant) et le mot de passe.')
       return
@@ -66,10 +67,7 @@ export default function Login () {
         style={{ flex: 1 }}
         behavior={Platform.select({ ios: 'padding', android: undefined })}
       >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ flexGrow: 1 }}
-        >
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }}>
           <LinearGradient
             colors={[...BrandColors.gradient]}
             style={{
@@ -100,10 +98,7 @@ export default function Login () {
             >
               AssurMoi
             </Text>
-            <Text
-              variant="bodyLarge"
-              style={{ color: 'rgba(255,255,255,0.9)', maxWidth: 320 }}
-            >
+            <Text variant="bodyLarge" style={{ color: 'rgba(255,255,255,0.9)', maxWidth: 320 }}>
               Votre espace assuré : suivi des dossiers, documents et protection au quotidien.
             </Text>
           </LinearGradient>
@@ -157,7 +152,7 @@ export default function Login () {
               right={
                 <TextInput.Icon
                   icon={secure ? 'eye' : 'eye-off'}
-                  onPress={() => setSecure(s => !s)}
+                  onPress={() => setSecure((s) => !s)}
                 />
               }
               style={{ marginTop: 8 }}
@@ -183,7 +178,10 @@ export default function Login () {
               onPress={() => router.push('/forgot-password')}
               style={{ marginTop: 16, marginBottom: 8 }}
             >
-              <Text variant="bodySmall" style={{ color: theme.colors.primary, textAlign: 'center' }}>
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.primary, textAlign: 'center' }}
+              >
                 Mot de passe oublié ?
               </Text>
             </Pressable>
@@ -193,11 +191,23 @@ export default function Login () {
 
       <Snackbar
         visible={snack}
-        onDismiss={() => setSnack(false)}
-        duration={4000}
-        action={{ label: 'OK', onPress: () => setSnack(false) }}
+        onDismiss={() => {
+          setSnack(false)
+          setInfoMessage(null)
+        }}
+        duration={infoMessage ? 5000 : 4000}
+        action={{
+          label: 'OK',
+          onPress: () => {
+            setSnack(false)
+            setInfoMessage(null)
+          }
+        }}
+        style={
+          infoMessage && !error ? { backgroundColor: theme.colors.primaryContainer } : undefined
+        }
       >
-        {error}
+        {infoMessage && !error ? infoMessage : error}
       </Snackbar>
     </SafeAreaView>
   )

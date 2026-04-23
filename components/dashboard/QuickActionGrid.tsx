@@ -11,7 +11,7 @@ type Props = {
   onAction: (action: QuickAction) => void
 }
 
-export function QuickActionGrid ({ actions, onAction }: Props) {
+export function QuickActionGrid({ actions, onAction }: Props) {
   const theme = useTheme()
   const { width } = useWindowDimensions()
   const padding = 4

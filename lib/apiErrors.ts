@@ -4,7 +4,7 @@ export type ApiErrorBody = {
 }
 
 export class ApiRequestError extends Error {
-  constructor (
+  constructor(
     message: string,
     public readonly status: number,
     public readonly body?: ApiErrorBody

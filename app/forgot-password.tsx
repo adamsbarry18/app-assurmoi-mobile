@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { forgotPasswordRequest } from '@/lib/auth/authApi'
 import { ApiRequestError } from '@/lib/api'
 
-export default function ForgotPassword () {
+export default function ForgotPassword() {
   const theme = useTheme()
   const router = useRouter()
   const [email, setEmail] = useState('')
@@ -14,7 +14,7 @@ export default function ForgotPassword () {
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
 
-  async function onSubmit () {
+  async function onSubmit() {
     setError(null)
     const e = email.trim()
     if (!e) {
@@ -46,8 +46,9 @@ export default function ForgotPassword () {
       >
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
           <Text variant="bodyMedium" style={{ marginBottom: 16, lineHeight: 22 }}>
-            Saisissez l’adresse e-mail de votre compte. Si un compte existe, vous recevrez les
-            instructions pour réinitialiser votre mot de passe.
+            Indiquez l’adresse e-mail de votre compte. Vous recevrez un message avec un lien pour le
+            navigateur et un lien « ouvrir dans l’app » sur mobile, pour choisir un nouveau mot de
+            passe.
           </Text>
 
           <TextInput
@@ -69,8 +70,8 @@ export default function ForgotPassword () {
 
           {done ? (
             <Text style={{ marginTop: 16, color: theme.colors.secondary }}>
-              Si un compte correspond à cet e-mail, un message a été envoyé. Vérifiez votre boîte
-              de réception.
+              Si un compte correspond à cet e-mail, un message a été envoyé. Vérifiez votre boîte de
+              réception.
             </Text>
           ) : (
             <Button

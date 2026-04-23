@@ -7,7 +7,7 @@ import { useAuth } from '@/features/auth'
 /**
  * Point d’entrée « / » : restaure la session puis redirige.
  */
-export default function Index () {
+export default function Index() {
   const { user, isReady } = useAuth()
   const router = useRouter()
   const theme = useTheme()

@@ -1,6 +1,6 @@
 import { LogBox } from 'react-native'
 import { Stack } from 'expo-router'
-import { StatusBar } from '@/node_modules/expo-status-bar/build/StatusBar'
+import { StatusBar } from 'expo-status-bar'
 import { PaperProvider } from 'react-native-paper'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -15,7 +15,7 @@ if (__DEV__) {
   ])
 }
 
-export default function RootLayout () {
+export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -23,27 +23,30 @@ export default function RootLayout () {
           <AuthProvider>
             <Stack
               screenOptions={{
-                contentStyle: { backgroundColor: assurMoiLightTheme.colors.background }
+                contentStyle: { backgroundColor: assurMoiLightTheme.colors.background },
+                /** Évite le libellé « (main) » (nom du groupe Expo Router) sur le bouton retour iOS */
+                headerBackButtonDisplayMode: 'minimal',
+                headerBackTitle: ''
               }}
             >
-              <Stack.Screen
-                name="index"
-                options={{ headerShown: false, animation: 'none' }}
-              />
-              <Stack.Screen
-                name="login"
-                options={{ headerShown: false }}
-              />
-              <Stack.Screen
-                name="(main)"
-                options={{ headerShown: false }}
-              />
+              <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
+              <Stack.Screen name="login" options={{ headerShown: false }} />
+              <Stack.Screen name="(main)" options={{ headerShown: false }} />
               <Stack.Screen
                 name="forgot-password"
                 options={{
                   title: 'Mot de passe oublié',
                   headerStyle: { backgroundColor: assurMoiLightTheme.colors.primary },
                   headerTintColor: assurMoiLightTheme.colors.onPrimary
+                }}
+              />
+              <Stack.Screen
+                name="reset-password"
+                options={{
+                  title: 'Nouveau mot de passe',
+                  headerStyle: { backgroundColor: assurMoiLightTheme.colors.primary },
+                  headerTintColor: assurMoiLightTheme.colors.onPrimary,
+                  headerBackTitle: 'Connexion'
                 }}
               />
               <Stack.Screen
@@ -56,21 +59,57 @@ export default function RootLayout () {
                 }}
               />
               <Stack.Screen
-                name="admin-user-create"
+                name="profile"
                 options={{
-                  title: 'Nouvel utilisateur',
+                  title: 'Mon profil',
                   headerStyle: { backgroundColor: assurMoiLightTheme.colors.primary },
                   headerTintColor: assurMoiLightTheme.colors.onPrimary,
+                  headerBackTitle: 'Accueil',
                   headerShadowVisible: false
                 }}
               />
               <Stack.Screen
-                name="admin-user/[id]"
+                name="claim/create"
                 options={{
-                  title: 'Fiche utilisateur',
-                  headerStyle: { backgroundColor: assurMoiLightTheme.colors.primary },
-                  headerTintColor: assurMoiLightTheme.colors.onPrimary,
-                  headerBackTitle: 'Liste',
+                  title: 'Nouveau sinistre',
+                  headerStyle: { backgroundColor: assurMoiLightTheme.colors.surface },
+                  headerTintColor: assurMoiLightTheme.colors.primary,
+                  headerShadowVisible: false
+                }}
+              />
+              <Stack.Screen
+                name="claim/[id]"
+                options={{
+                  title: 'Sinistre',
+                  headerStyle: { backgroundColor: assurMoiLightTheme.colors.surface },
+                  headerTintColor: assurMoiLightTheme.colors.primary,
+                  headerShadowVisible: false
+                }}
+              />
+              <Stack.Screen
+                name="folder/[id]"
+                options={{
+                  title: 'Dossier',
+                  headerStyle: { backgroundColor: assurMoiLightTheme.colors.surface },
+                  headerTintColor: assurMoiLightTheme.colors.primary,
+                  headerShadowVisible: false
+                }}
+              />
+              <Stack.Screen
+                name="history"
+                options={{
+                  title: 'Historique',
+                  headerStyle: { backgroundColor: assurMoiLightTheme.colors.surface },
+                  headerTintColor: assurMoiLightTheme.colors.primary,
+                  headerShadowVisible: false
+                }}
+              />
+              <Stack.Screen
+                name="document/[id]"
+                options={{
+                  title: 'Document',
+                  headerStyle: { backgroundColor: assurMoiLightTheme.colors.surface },
+                  headerTintColor: assurMoiLightTheme.colors.primary,
                   headerShadowVisible: false
                 }}
               />

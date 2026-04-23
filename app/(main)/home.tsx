@@ -1,21 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { ScrollView, View } from 'react-native'
 import { type Href, useRouter } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
-import { Button, IconButton, Menu, Text, useTheme } from 'react-native-paper'
+import { Button, IconButton, Text, useTheme } from 'react-native-paper'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '@/features/auth'
 import { QuickActionGrid } from '@/components/dashboard/QuickActionGrid'
+import { NotificationHeaderButton } from '@/components/notifications/NotificationHeaderButton'
 import { getHeroCopy, getQuickActions, type QuickAction } from '@/lib/dashboardConfig'
 import { canListUsers, roleLabel } from '@/lib/roleAccess'
 import { BrandColors } from '@/constants/brand'
 
-export default function HomeDashboard () {
+export default function HomeDashboard() {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { user, isReady } = useAuth()
-  const [actionsMenuOpen, setActionsMenuOpen] = useState(false)
 
   useEffect(() => {
     if (!isReady) return
@@ -29,13 +29,8 @@ export default function HomeDashboard () {
       router.push(a.href as Href)
       return
     }
-    if (a.tab === 'sinistres') router.push('/sinistres')
-    if (a.tab === 'dossiers') router.push('/dossiers')
-  }
-
-  const runActionAndCloseMenu = (a: QuickAction) => {
-    setActionsMenuOpen(false)
-    onQuickAction(a)
+    if (a.tab === 'claims') router.push('/claims' as Href)
+    if (a.tab === 'folders') router.push('/folders' as Href)
   }
 
   if (!user) {
@@ -70,39 +65,27 @@ export default function HomeDashboard () {
         >
           <Text
             variant="headlineSmall"
-            style={{ color: '#fff', fontWeight: '700', flex: 1, paddingRight: 8 }}
+            style={{ color: '#fff', fontWeight: '700', flex: 1, paddingRight: 8, flexWrap: 'wrap' }}
           >
-            Bienvenue {firstName}
+            Bienvenue{' '}
+            <Text style={{ color: BrandColors.welcomeName, fontWeight: '700' }}>{firstName}</Text>
           </Text>
-          <Menu
-            visible={actionsMenuOpen}
-            onDismiss={() => setActionsMenuOpen(false)}
-            anchorPosition="bottom"
-            contentStyle={{ minWidth: 256 }}
-            anchor={
-              <IconButton
-                icon="menu"
-                iconColor="#fff"
-                size={26}
-                onPress={() => setActionsMenuOpen(true)}
-                style={{
-                  margin: 0,
-                  backgroundColor: 'rgba(255,255,255,0.22)',
-                  borderRadius: 22
-                }}
-                accessibilityLabel="Menu des actions"
-              />
-            }
-          >
-            {quickActions.map((a) => (
-              <Menu.Item
-                key={a.id}
-                title={a.label}
-                leadingIcon={a.icon}
-                onPress={() => runActionAndCloseMenu(a)}
-              />
-            ))}
-          </Menu>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <NotificationHeaderButton variant="onPrimary" />
+            <IconButton
+              icon="account-circle"
+              iconColor="#fff"
+              size={28}
+              onPress={() => router.push('/profile')}
+              style={{
+                margin: 0,
+                backgroundColor: 'rgba(255,255,255,0.22)',
+                borderRadius: 22
+              }}
+              accessibilityLabel="Mon profil"
+              accessibilityHint="Afficher et modifier vos informations"
+            />
+          </View>
         </View>
         <Text
           style={{
@@ -145,7 +128,10 @@ export default function HomeDashboard () {
           >
             {hero.title}
           </Text>
-          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, lineHeight: 22 }}>
+          <Text
+            variant="bodyMedium"
+            style={{ color: theme.colors.onSurfaceVariant, lineHeight: 22 }}
+          >
             {hero.subtitle}
           </Text>
           {hero.ctaLabel && (hero.ctaHref || hero.ctaTab) ? (
@@ -153,8 +139,8 @@ export default function HomeDashboard () {
               mode="contained"
               onPress={() => {
                 if (hero.ctaHref) router.push(hero.ctaHref as Href)
-                else if (hero.ctaTab === 'sinistres') router.push('/sinistres')
-                else if (hero.ctaTab === 'dossiers') router.push('/dossiers')
+                else if (hero.ctaTab === 'claims') router.push('/claims' as Href)
+                else if (hero.ctaTab === 'folders') router.push('/folders' as Href)
               }}
               style={{ marginTop: 16, borderRadius: 10 }}
               buttonColor={BrandColors.primary}

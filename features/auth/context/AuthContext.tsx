@@ -7,18 +7,8 @@ import {
   useState,
   type ReactNode
 } from 'react'
-import {
-  clearTokens,
-  getAccessToken,
-  getRefreshToken,
-  setTokens
-} from '@/lib/auth/tokenStorage'
-import {
-  loginRequest,
-  logoutRequest,
-  meRequest,
-  refreshRequest
-} from '@/lib/auth/authApi'
+import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '@/lib/auth/tokenStorage'
+import { loginRequest, logoutRequest, meRequest, refreshRequest } from '@/lib/auth/authApi'
 import type { AuthUser } from '@/lib/auth/types'
 
 type AuthContextValue = {
@@ -32,7 +22,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-export function AuthProvider ({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isReady, setIsReady] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -117,7 +107,7 @@ export function AuthProvider ({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export function useAuth (): AuthContextValue {
+export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext)
   if (!ctx) {
     throw new Error('useAuth doit être utilisé dans un AuthProvider')
