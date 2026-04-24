@@ -24,6 +24,7 @@ import {
 } from '@/lib/roleAccess'
 import { BrandColors } from '@/constants/brand'
 import { pickDocumentFile } from '@/lib/pickDocument'
+import { buildDocumentMultipartForm } from '@/lib/documentFormData'
 
 type ClaimBody = SinisterDetailResponse['data']
 
@@ -119,10 +120,7 @@ export default function ClaimDetailScreen() {
                   field: 'vehicle_registration_doc_id' as const
                 }
               : { docType: 'INSURANCE_CERT' as const, field: 'insurance_certificate_id' as const }
-        const form = new FormData()
-        form.append('type', spec.docType)
-        form.append('file', { uri, name, type: mime } as never)
-        const up = await uploadDocument(form)
+        const up = await uploadDocument(buildDocumentMultipartForm(spec.docType, { uri, name, mime }))
         await updateSinister(id, { [spec.field]: up.data.id })
         setInfo(
           'Document importé et lié au sinistre. Faites valider chaque pièce (écran document), puis validez le sinistre.'

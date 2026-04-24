@@ -37,6 +37,7 @@ import { fetchTrackingOfficerOptions } from '@/lib/usersApi'
 import type { AuthUser } from '@/lib/auth/types'
 import { BrandColors } from '@/constants/brand'
 import { pickDocumentFile } from '@/lib/pickDocument'
+import { buildDocumentMultipartForm } from '@/lib/documentFormData'
 
 type FolderBody = FolderDetailResponse['data']
 
@@ -262,10 +263,13 @@ export default function FolderDetailScreen() {
       if (!picked) {
         return
       }
-      const form = new FormData()
-      form.append('type', importDocType)
-      form.append('file', { uri: picked.uri, name: picked.name, type: picked.mime } as never)
-      const up = await uploadDocument(form)
+      const up = await uploadDocument(
+        buildDocumentMultipartForm(importDocType, {
+          uri: picked.uri,
+          name: picked.name,
+          mime: picked.mime
+        })
+      )
       setStepDocId(String(up.data.id))
       setInfo(
         `Document n°${up.data.id} importé (${importDocType}). Vérifiez la validation gestionnaire si requis, puis enregistrez l’étape.`
@@ -287,10 +291,13 @@ export default function FolderDetailScreen() {
         setUploading(false)
         return
       }
-      const form = new FormData()
-      form.append('type', 'RIB')
-      form.append('file', { uri: picked.uri, name: picked.name, type: picked.mime } as never)
-      const up = await uploadDocument(form)
+      const up = await uploadDocument(
+        buildDocumentMultipartForm('RIB', {
+          uri: picked.uri,
+          name: picked.name,
+          mime: picked.mime
+        })
+      )
       await postFolderRibStep(data.id, up.data.id)
       await load()
     } catch (e) {
