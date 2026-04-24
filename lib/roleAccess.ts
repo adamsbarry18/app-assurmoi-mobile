@@ -25,12 +25,27 @@ export function roleLabel(role: string): string {
 
 /** Visibilité des liens API (cohérent avec `requireRoles` sur chaque route). */
 export function canListUsers(role: string): boolean {
+  return role === 'ADMIN' || role === 'PORTFOLIO_MANAGER' || role === 'CUSTOMER_OFFICER'
+}
+
+/** Désactiver / réactiver / supprimer un compte : réservé admin (routes sensibles). */
+export function canFullUserAdmin(role: string): boolean {
   return role === 'ADMIN'
 }
 
 /** Création de déclaration (POST /api/sinisters) — aligné sur `ROLES_CREATE`. */
 export function canCreateClaim(role: string): boolean {
   return role === 'ADMIN' || role === 'PORTFOLIO_MANAGER' || role === 'CUSTOMER_OFFICER'
+}
+
+/** L’assuré déclare un sinistre pour son propre compte (sans choix d’un autre assuré). */
+export function canDeclareOwnClaim(role: string): boolean {
+  return role === 'INSURED'
+}
+
+/** POST /api/sinisters — collaborateur ou assuré. */
+export function canCreateSinister(role: string): boolean {
+  return canCreateClaim(role) || canDeclareOwnClaim(role)
 }
 
 /** Validation manager (PATCH /api/sinisters/:id/validate) — aligné sur `ROLES_VALIDATE`. */
@@ -59,6 +74,11 @@ export function canViewEntityHistory(role: string): boolean {
 /** Liste courte d’assurés (GET /api/users/insured-options) — mêmes rôles que la création. */
 export function canFetchInsuredOptions(role: string): boolean {
   return canCreateClaim(role)
+}
+
+/** POST /api/users/insured-provision */
+export function canProvisionInsuredAccount(role: string): boolean {
+  return role === 'ADMIN' || role === 'PORTFOLIO_MANAGER' || role === 'CUSTOMER_OFFICER'
 }
 
 /** POST /api/folders — ROLES_CREATE sur la route dossiers. */

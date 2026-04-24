@@ -1,4 +1,9 @@
-import { canCreateClaim, type UserRole } from '@/lib/roleAccess'
+import {
+  canCreateSinister,
+  canListUsers,
+  canProvisionInsuredAccount,
+  type UserRole
+} from '@/lib/roleAccess'
 
 export type QuickAction = {
   id: string
@@ -25,15 +30,15 @@ export function getHeroCopy(role: string): {
         title: 'Pilotage de la plateforme',
         subtitle:
           'Création de comptes, supervision des sinistres et des dossiers de prise en charge.',
-        ctaLabel: 'Gérer les utilisateurs',
-        ctaHref: '/admin-users'
+        ctaLabel: 'Ouvrir les sinistres',
+        ctaTab: 'claims'
       }
     case 'PORTFOLIO_MANAGER':
       return {
         title: 'Supervision des sinistres',
         subtitle:
           'Vue globale des sinistres et dossiers, validation des documents et suivi des étapes.',
-        ctaLabel: 'Voir les sinistres',
+        ctaLabel: 'Ouvrir les sinistres',
         ctaTab: 'claims'
       }
     case 'TRACKING_OFFICER':
@@ -49,7 +54,7 @@ export function getHeroCopy(role: string): {
         title: 'Déclaration et instruction',
         subtitle:
           'Enregistrez un sinistre, complétez les pièces et menez l’opération jusqu’à la génération du dossier.',
-        ctaLabel: 'Espace sinistres',
+        ctaLabel: 'Ouvrir les sinistres',
         ctaTab: 'claims'
       }
     case 'INSURED':
@@ -65,16 +70,12 @@ export function getHeroCopy(role: string): {
 }
 
 /**
- * Raccourcis (accueil, menu ⋮) : écrans métier uniquement.
- * Pas de lien vers l’onglet « Plus » (profil / réglages) : évite le doublon « Menu dans Menu ».
+ * Raccourcis (accueil, menu ⋮) : écrans hors onglets du bas.
+ * Sinistres / Dossiers : déjà dans la barre d’onglets — pas de doublon ici.
  */
 export function getQuickActions(role: string): QuickAction[] {
   const r = role as UserRole
-  const base: QuickAction[] = [
-    { id: 'claims', label: 'Sinistres', icon: 'file-document-outline', tab: 'claims' },
-    { id: 'folders', label: 'Dossiers', icon: 'folder-outline', tab: 'folders' }
-  ]
-  const createClaim: QuickAction | null = canCreateClaim(r)
+  const createClaim: QuickAction | null = canCreateSinister(r)
     ? {
         id: 'new-claim',
         label: 'Nouveau sinistre',
@@ -82,31 +83,43 @@ export function getQuickActions(role: string): QuickAction[] {
         href: '/claim/create'
       }
     : null
+  const teamUsersAction: QuickAction | null = canListUsers(r)
+    ? { id: 'team-users', label: 'Équipe', icon: 'account-tie', href: '/admin-users' }
+    : null
+  const insuredUsersAction: QuickAction | null = canListUsers(r)
+    ? { id: 'insured-users', label: 'Assurés', icon: 'account-heart', href: '/insured-users' }
+    : null
+  /** Fiche assuré (page dédiée) — e-mail 1er accès depuis la liste quand voulu. */
+  const newInsuredAction: QuickAction | null = canProvisionInsuredAccount(r)
+    ? {
+        id: 'new-insured',
+        label: 'Nouvel assuré',
+        icon: 'account-plus-outline',
+        href: '/provision-insured'
+      }
+    : null
+
   switch (r) {
     case 'ADMIN':
       return [
-        { id: 'users', label: 'Utilisateurs', icon: 'account-supervisor', href: '/admin-users' },
-        ...(createClaim ? [createClaim] : []),
-        ...base
+        ...(teamUsersAction ? [teamUsersAction] : []),
+        ...(insuredUsersAction ? [insuredUsersAction] : []),
+        ...(newInsuredAction ? [newInsuredAction] : []),
+        ...(createClaim ? [createClaim] : [])
       ]
     case 'PORTFOLIO_MANAGER':
     case 'CUSTOMER_OFFICER':
-      return [...(createClaim ? [createClaim] : []), ...base]
+      return [
+        ...(teamUsersAction ? [teamUsersAction] : []),
+        ...(insuredUsersAction ? [insuredUsersAction] : []),
+        ...(newInsuredAction ? [newInsuredAction] : []),
+        ...(createClaim ? [createClaim] : [])
+      ]
     case 'TRACKING_OFFICER':
-      return [
-        {
-          id: 'folders-tracking',
-          label: 'Mes dossiers',
-          icon: 'folder-cog-outline',
-          tab: 'folders'
-        }
-      ]
+      return []
     case 'INSURED':
-      return [
-        { id: 'my-claims', label: 'Mes sinistres', icon: 'car-outline', tab: 'claims' },
-        { id: 'my-folders', label: 'Mes dossiers', icon: 'file-tree-outline', tab: 'folders' }
-      ]
+      return [...(createClaim ? [createClaim] : [])]
     default:
-      return base
+      return []
   }
 }

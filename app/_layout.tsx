@@ -52,10 +52,39 @@ export default function RootLayout() {
               <Stack.Screen
                 name="admin-users"
                 options={{
-                  title: 'Utilisateurs',
+                  title: 'Équipe',
                   headerStyle: { backgroundColor: assurMoiLightTheme.colors.primary },
                   headerTintColor: assurMoiLightTheme.colors.onPrimary,
                   headerShadowVisible: false
+                }}
+              />
+              <Stack.Screen
+                name="insured-users"
+                options={{
+                  title: 'Assurés',
+                  headerStyle: { backgroundColor: assurMoiLightTheme.colors.primary },
+                  headerTintColor: assurMoiLightTheme.colors.onPrimary,
+                  headerShadowVisible: false
+                }}
+              />
+              <Stack.Screen
+                name="provision-insured"
+                options={{
+                  title: 'Nouvel assuré',
+                  headerStyle: { backgroundColor: assurMoiLightTheme.colors.primary },
+                  headerTintColor: assurMoiLightTheme.colors.onPrimary,
+                  headerShadowVisible: false,
+                  headerBackTitle: 'Retour'
+                }}
+              />
+              <Stack.Screen
+                name="user/[id]"
+                options={{
+                  title: 'Fiche utilisateur',
+                  headerStyle: { backgroundColor: assurMoiLightTheme.colors.primary },
+                  headerTintColor: assurMoiLightTheme.colors.onPrimary,
+                  headerShadowVisible: false,
+                  headerBackTitle: 'Retour'
                 }}
               />
               <Stack.Screen

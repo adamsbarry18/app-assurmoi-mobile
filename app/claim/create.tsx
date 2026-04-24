@@ -14,7 +14,7 @@ import { useAuth } from '@/features/auth'
 import { createSinister } from '@/lib/claimsApi'
 import { fetchInsuredOptions } from '@/lib/usersApi'
 import { ApiRequestError } from '@/lib/apiErrors'
-import { canCreateClaim } from '@/lib/roleAccess'
+import { canCreateClaim, canCreateSinister, canDeclareOwnClaim } from '@/lib/roleAccess'
 import type { AuthUser } from '@/lib/auth/types'
 import { BrandColors } from '@/constants/brand'
 
@@ -77,7 +77,7 @@ export default function CreateClaimScreen() {
   const [optionsError, setOptionsError] = useState<string | null>(null)
 
   const loadInsured = useCallback(async () => {
-    if (!user || !canCreateClaim(user.role)) return
+    if (!user || !canCreateClaim(user.role) || canDeclareOwnClaim(user.role)) return
     setLoadingOptions(true)
     setOptionsError(null)
     try {
@@ -98,13 +98,13 @@ export default function CreateClaimScreen() {
   }, [isReady, user, router])
 
   useEffect(() => {
-    if (user && !canCreateClaim(user.role)) {
+    if (user && !canCreateSinister(user.role)) {
       router.replace('/(main)/claims' as Href)
     }
   }, [user, router])
 
   useEffect(() => {
-    if (user && canCreateClaim(user.role)) void loadInsured()
+    if (user && canCreateClaim(user.role) && !canDeclareOwnClaim(user.role)) void loadInsured()
   }, [user, loadInsured])
 
   const selectedInsured = useMemo(
@@ -133,8 +133,10 @@ export default function CreateClaimScreen() {
       return
     }
     const pct = driverResponsability ? (Number(responsibilityPct) as 0 | 50 | 100) : 0
+    if (!user) return
     setSubmitting(true)
     try {
+      const isInsured = user.role === 'INSURED'
       const res = await createSinister({
         vehicle_plate: plate,
         call_datetime: new Date().toISOString(),
@@ -145,7 +147,7 @@ export default function CreateClaimScreen() {
         is_driver_insured: isDriverInsured,
         driver_responsability: driverResponsability,
         driver_engaged_responsibility: driverResponsability ? pct : 0,
-        insured_user_id: insuredId
+        ...(!isInsured ? { insured_user_id: insuredId } : {})
       })
       router.replace(`/claim/${res.data.id}` as Href)
     } catch (e) {
@@ -159,9 +161,11 @@ export default function CreateClaimScreen() {
     }
   }
 
-  if (!user || !canCreateClaim(user.role)) {
+  if (!user || !canCreateSinister(user.role)) {
     return null
   }
+
+  const isInsured = user.role === 'INSURED'
 
   return (
     <ScrollView
@@ -170,8 +174,9 @@ export default function CreateClaimScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 16 }}>
-        Déclaration pour l’équipe interne. L’heure d’enregistrement de l’appel est celle d’envoi du
-        formulaire.
+        {isInsured
+          ? 'Déclaration de sinistre. Votre dossier sera examiné par un gestionnaire (validation requise). L’heure d’appel enregistrée est celle d’envoi du formulaire.'
+          : 'Déclaration pour l’équipe interne. L’heure d’enregistrement de l’appel est celle d’envoi du formulaire.'}
       </Text>
 
       {error ? <Text style={{ color: theme.colors.error, marginBottom: 12 }}>{error}</Text> : null}
@@ -268,47 +273,61 @@ export default function CreateClaimScreen() {
         </View>
       ) : null}
 
-      <Text variant="labelLarge" style={{ marginBottom: 8, color: theme.colors.onSurfaceVariant }}>
-        Rattacher à un compte assuré (optionnel)
-      </Text>
-      {optionsError ? (
-        <Text style={{ color: theme.colors.error, marginBottom: 8, fontSize: 13 }}>
-          {optionsError} — Vous pouvez enregistrer le sinistre sans rattachement.
-        </Text>
-      ) : null}
-      <Menu
-        visible={menuOpen}
-        onDismiss={() => setMenuOpen(false)}
-        anchor={
-          <Button
-            mode="outlined"
-            onPress={() => setMenuOpen(true)}
-            style={{ marginBottom: 8 }}
-            loading={loadingOptions}
-            disabled={loadingOptions}
+      {!isInsured ? (
+        <>
+          <Text
+            variant="labelLarge"
+            style={{ marginBottom: 8, color: theme.colors.onSurfaceVariant }}
           >
-            {selectedLabel}
-          </Button>
-        }
-      >
-        <Menu.Item
-          onPress={() => {
-            setInsuredId(null)
-            setMenuOpen(false)
-          }}
-          title="Aucun (non rattaché)"
-        />
-        {insuredList.map((u) => (
-          <Menu.Item
-            key={u.id}
-            onPress={() => {
-              setInsuredId(u.id)
-              setMenuOpen(false)
-            }}
-            title={displayName(u)}
-          />
-        ))}
-      </Menu>
+            Rattacher à un compte assuré (optionnel)
+          </Text>
+          {optionsError ? (
+            <Text style={{ color: theme.colors.error, marginBottom: 8, fontSize: 13 }}>
+              {optionsError} — Vous pouvez enregistrer le sinistre sans rattachement.
+            </Text>
+          ) : null}
+          <Menu
+            visible={menuOpen}
+            onDismiss={() => setMenuOpen(false)}
+            anchor={
+              <Button
+                mode="outlined"
+                onPress={() => setMenuOpen(true)}
+                style={{ marginBottom: 8 }}
+                loading={loadingOptions}
+                disabled={loadingOptions}
+              >
+                {selectedLabel}
+              </Button>
+            }
+          >
+            <Menu.Item
+              onPress={() => {
+                setInsuredId(null)
+                setMenuOpen(false)
+              }}
+              title="Aucun (non rattaché)"
+            />
+            {insuredList.map((u) => (
+              <Menu.Item
+                key={u.id}
+                onPress={() => {
+                  setInsuredId(u.id)
+                  setMenuOpen(false)
+                }}
+                title={displayName(u)}
+              />
+            ))}
+          </Menu>
+        </>
+      ) : (
+        <Text
+          variant="bodySmall"
+          style={{ color: theme.colors.onSurfaceVariant, marginBottom: 12 }}
+        >
+          Compte rattaché : <Text style={{ fontWeight: '600' }}>vous (assuré)</Text>
+        </Text>
+      )}
 
       <Button
         mode="contained"

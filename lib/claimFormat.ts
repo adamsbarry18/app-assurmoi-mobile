@@ -71,9 +71,7 @@ export function labelLinkedDocumentTypeForStep(apiType: FolderStepLinkedDocument
 export function folderStepLinkedDocumentRule(
   stepType: string,
   scenario: string | null | undefined
-):
-  | { required: false }
-  | { required: true; apiDocumentType: FolderStepLinkedDocumentApiType } {
+): { required: false } | { required: true; apiDocumentType: FolderStepLinkedDocumentApiType } {
   if (!scenario) return { required: false }
   if (scenario === 'REPAIRABLE') {
     if (stepType === 'S1_EXPERT_REPORT') {
@@ -114,3 +112,14 @@ export function formatDate(iso: string | undefined | null): string {
     timeStyle: 'short'
   })
 }
+
+/** Types alignés sur `models/document.js` — `POST /api/documents` champ `type`. */
+export const API_DOCUMENT_UPLOAD_TYPES: { value: string; label: string }[] = [
+  { value: 'ID_CARD', label: 'Pièce d’identité (CNI)' },
+  { value: 'REGISTRATION_CARD', label: 'Carte grise' },
+  { value: 'INSURANCE_CERT', label: 'Attestation d’assurance' },
+  { value: 'EXPERT_REPORT', label: 'Rapport d’expertise' },
+  { value: 'INVOICE', label: 'Facture / devis' },
+  { value: 'RIB', label: 'RIB' },
+  { value: 'SIGNATURE', label: 'Document de signature' }
+]

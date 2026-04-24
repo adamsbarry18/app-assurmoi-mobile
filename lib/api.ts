@@ -62,7 +62,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 }
 
 /**
- * Appel vers `/api/...` avec **Authorization: Bearer** (jetons lus via SecureStore, comme le contexte d’auth).
+ * Appel vers `/api/...` avec **Authorization: Bearer** (jetons lus via AsyncStorage, comme le contexte d’auth).
  * Sur **401**, tente un **refresh** des jetons une fois, puis relance la requête.
  */
 export async function apiFetchWithAuth<T>(path: string, init?: RequestInit): Promise<T> {

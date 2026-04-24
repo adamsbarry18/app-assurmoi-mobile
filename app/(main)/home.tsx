@@ -8,7 +8,7 @@ import { useAuth } from '@/features/auth'
 import { QuickActionGrid } from '@/components/dashboard/QuickActionGrid'
 import { NotificationHeaderButton } from '@/components/notifications/NotificationHeaderButton'
 import { getHeroCopy, getQuickActions, type QuickAction } from '@/lib/dashboardConfig'
-import { canListUsers, roleLabel } from '@/lib/roleAccess'
+import { roleLabel } from '@/lib/roleAccess'
 import { BrandColors } from '@/constants/brand'
 
 export default function HomeDashboard() {
@@ -150,24 +150,17 @@ export default function HomeDashboard() {
           ) : null}
         </View>
 
-        <Text
-          variant="titleMedium"
-          style={{ marginBottom: 12, color: theme.colors.onSurface, fontWeight: '600' }}
-        >
-          Accès rapides
-        </Text>
-        <QuickActionGrid actions={quickActions} onAction={onQuickAction} />
-
-        {canListUsers(user.role) && (
-          <Button
-            mode="outlined"
-            icon="account-supervisor"
-            onPress={() => router.push('/admin-users')}
-            style={{ marginTop: 20, borderRadius: 10, borderColor: theme.colors.outline }}
-          >
-            Gestion des utilisateurs
-          </Button>
-        )}
+        {quickActions.length > 0 ? (
+          <>
+            <Text
+              variant="titleMedium"
+              style={{ marginBottom: 12, color: theme.colors.onSurface, fontWeight: '600' }}
+            >
+              Accès rapides
+            </Text>
+            <QuickActionGrid actions={quickActions} onAction={onQuickAction} />
+          </>
+        ) : null}
       </ScrollView>
     </View>
   )

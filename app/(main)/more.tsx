@@ -174,7 +174,9 @@ export default function MoreTab() {
   const quickActions = getQuickActions(user.role)
 
   const actionSubtitle: Record<string, string | undefined> = {
-    users: 'Créer, consulter et désactiver les comptes',
+    'team-users': 'Comptes collaborateur (hors assurés) et invitations associées',
+    'insured-users': 'Fiches assurés, invitations assuré, e-mail 1er accès',
+    'new-insured': 'Créer la fiche assuré (e-mail 1er accès depuis la liste, au moment voulu)',
     claims: 'Espace sinistres et déclarations',
     folders: 'Dossiers de prise en charge',
     'my-claims': 'Suivi de vos déclarations',

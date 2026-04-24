@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { Alert, Pressable, ScrollView, View } from 'react-native'
 import { useLocalSearchParams, useNavigation, useRouter, type Href } from 'expo-router'
-import * as DocumentPicker from 'expo-document-picker'
 import { Button, Card, Divider, Menu, Text, TextInput, useTheme } from 'react-native-paper'
 import { useAuth } from '@/features/auth'
 import {
@@ -16,6 +15,7 @@ import {
 import type { FolderDetailResponse, FolderStepRow, UserSummary } from '@/lib/claimsTypes'
 import { ApiRequestError } from '@/lib/apiErrors'
 import {
+  API_DOCUMENT_UPLOAD_TYPES,
   FOLDER_STEP_TYPE_OPTIONS,
   folderStepLinkedDocumentRule,
   folderStepTypeOptionsForScenario,
@@ -36,6 +36,7 @@ import {
 import { fetchTrackingOfficerOptions } from '@/lib/usersApi'
 import type { AuthUser } from '@/lib/auth/types'
 import { BrandColors } from '@/constants/brand'
+import { pickDocumentFile } from '@/lib/pickDocument'
 
 type FolderBody = FolderDetailResponse['data']
 
@@ -71,6 +72,9 @@ export default function FolderDetailScreen() {
   const [stepValue, setStepValue] = useState('')
   const [stepDocId, setStepDocId] = useState('')
   const [actionBusy, setActionBusy] = useState(false)
+  const [stepImportBusy, setStepImportBusy] = useState(false)
+  const [importDocType, setImportDocType] = useState('EXPERT_REPORT')
+  const [importTypeMenu, setImportTypeMenu] = useState(false)
 
   const id = Number.parseInt(String(rawId), 10)
 
@@ -119,6 +123,14 @@ export default function FolderDetailScreen() {
     const allowed = folderStepTypeOptionsForScenario(data.scenario).map((o) => o.value)
     if (!allowed.includes(stepType)) {
       setStepType(allowed[0] ?? FOLDER_STEP_TYPE_OPTIONS[0].value)
+    }
+  }, [data?.scenario, stepType])
+
+  useEffect(() => {
+    if (!data?.scenario) return
+    const rule = folderStepLinkedDocumentRule(stepType, data.scenario)
+    if (rule.required) {
+      setImportDocType(rule.apiDocumentType)
     }
   }, [data?.scenario, stepType])
 
@@ -240,25 +252,44 @@ export default function FolderDetailScreen() {
     }
   }
 
+  const onImportWithSelectedType = useCallback(async () => {
+    if (!data?.scenario) return
+    setStepImportBusy(true)
+    setError(null)
+    setInfo(null)
+    try {
+      const picked = await pickDocumentFile()
+      if (!picked) {
+        return
+      }
+      const form = new FormData()
+      form.append('type', importDocType)
+      form.append('file', { uri: picked.uri, name: picked.name, type: picked.mime } as never)
+      const up = await uploadDocument(form)
+      setStepDocId(String(up.data.id))
+      setInfo(
+        `Document n°${up.data.id} importé (${importDocType}). Vérifiez la validation gestionnaire si requis, puis enregistrez l’étape.`
+      )
+    } catch (e) {
+      setError(e instanceof ApiRequestError ? e.message : 'Import du document impossible.')
+    } finally {
+      setStepImportBusy(false)
+    }
+  }, [data?.scenario, importDocType])
+
   const onDepositRib = async () => {
     setRibError(null)
     if (!data || data.is_closed) return
     setUploading(true)
     try {
-      const pick = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
-        copyToCacheDirectory: true
-      })
-      if (pick.canceled || !pick.assets?.[0]) {
+      const picked = await pickDocumentFile()
+      if (!picked) {
         setUploading(false)
         return
       }
-      const asset = pick.assets[0]
-      const name = asset.name || 'rib.pdf'
-      const mime = asset.mimeType || 'application/pdf'
       const form = new FormData()
       form.append('type', 'RIB')
-      form.append('file', { uri: asset.uri, name, type: mime } as never)
+      form.append('file', { uri: picked.uri, name: picked.name, type: picked.mime } as never)
       const up = await uploadDocument(form)
       await postFolderRibStep(data.id, up.data.id)
       await load()
@@ -342,10 +373,7 @@ export default function FolderDetailScreen() {
           </Card>
 
           {canDefineScenario ? (
-            <Card
-              style={{ marginBottom: 12, borderColor: BrandColors.primary }}
-              mode="outlined"
-            >
+            <Card style={{ marginBottom: 12, borderColor: BrandColors.primary }} mode="outlined">
               <Card.Content>
                 <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 6 }}>
                   Définir le scénario du dossier
@@ -497,12 +525,18 @@ export default function FolderDetailScreen() {
                   variant="bodySmall"
                   style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8, lineHeight: 20 }}
                 >
-                  Importez d’abord le document côté API Documents (type attendu), faites-le valider
-                  par un gestionnaire si requis, puis indiquez son identifiant ici.{' '}
-                  {addStepDocRule.required
-                    ? `Pour l’étape choisie, cet identifiant est obligatoire.`
-                    : `Pour ce type d’étape, l’id document reste optionnel.`}{' '}
-                  (Exception : RIB déposé par l’assuré, règles back-office.)
+                  {addStepDocRule.required ? (
+                    <>
+                      L’étape choisie exige un identifiant de document : le type requis est rappelé
+                      ci-dessous (préselectionné pour l’import). Sinon l’id reste optionnel.
+                    </>
+                  ) : (
+                    <>
+                      L’id document est <Text style={{ fontWeight: '600' }}>optionnel</Text> pour
+                      ce type d’étape (ex. échéance). Utilisez le bloc import pour générer un id, ou
+                      laissez vide.
+                    </>
+                  )}
                 </Text>
                 {addStepDocRule.required ? (
                   <Text
@@ -512,6 +546,57 @@ export default function FolderDetailScreen() {
                     Type attendu : {labelLinkedDocumentTypeForStep(addStepDocRule.apiDocumentType)}
                   </Text>
                 ) : null}
+                {data.scenario ? (
+                  <>
+                    <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 4 }}>
+                      Importer un document
+                    </Text>
+                    <Text
+                      variant="bodySmall"
+                      style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8, lineHeight: 20 }}
+                    >
+                      Type côté API, puis choix d’un PDF ou d’une image. Le champ id plus bas se
+                      remplit automatiquement.
+                    </Text>
+                    <Menu
+                      visible={importTypeMenu}
+                      onDismiss={() => setImportTypeMenu(false)}
+                      anchor={
+                        <Button
+                          mode="outlined"
+                          onPress={() => setImportTypeMenu(true)}
+                          style={{ marginBottom: 8 }}
+                        >
+                          {API_DOCUMENT_UPLOAD_TYPES.find((o) => o.value === importDocType)?.label ??
+                            importDocType}
+                        </Button>
+                      }
+                    >
+                      {API_DOCUMENT_UPLOAD_TYPES.map((o) => (
+                        <Menu.Item
+                          key={o.value}
+                          onPress={() => {
+                            setImportDocType(o.value)
+                            setImportTypeMenu(false)
+                          }}
+                          title={o.label}
+                        />
+                      ))}
+                    </Menu>
+                    <Button
+                      mode="outlined"
+                      onPress={() => void onImportWithSelectedType()}
+                      loading={stepImportBusy}
+                      disabled={stepImportBusy || actionBusy}
+                      style={{ marginBottom: 12 }}
+                    >
+                      Importer le fichier
+                    </Button>
+                  </>
+                ) : null}
+                <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 6 }}>
+                  Type d’étape
+                </Text>
                 <Menu
                   visible={stepTypeMenu}
                   onDismiss={() => setStepTypeMenu(false)}

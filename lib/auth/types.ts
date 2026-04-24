@@ -7,6 +7,8 @@ export type AuthUser = {
   last_name: string | null
   role: string
   is_active: boolean
+  /** Tant que l’assuré n’a pas défini son mot de passe (compte provisionné). */
+  password_pending?: boolean
   created_at?: string
   updated_at?: string
 }

@@ -22,10 +22,11 @@ export default function FoldersTab() {
   const load = useCallback(async () => {
     setError(null)
     try {
+      /* Pas de filtre assigned_officer_id : le cahier prévoit « l’ensemble des dossiers » pour le
+       * chargé de suivi ; l’API liste déjà tous les dossiers pour les rôles staff. */
       const res = await fetchFolders({
         limit: 50,
-        offset: 0,
-        ...(user?.role === 'TRACKING_OFFICER' ? { assigned_officer_id: user.id } : {})
+        offset: 0
       })
       setRows(res.data)
     } catch (e) {
@@ -36,7 +37,7 @@ export default function FoldersTab() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [user])
+  }, [])
 
   useEffect(() => {
     if (isReady && !user) router.replace('/login')

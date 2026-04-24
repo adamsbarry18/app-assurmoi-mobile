@@ -7,15 +7,22 @@ export type ListUsersResponse = {
   meta: ListMeta
 }
 
+export async function fetchUserById(id: number): Promise<{ data: AuthUser }> {
+  return apiFetchWithAuth<{ data: AuthUser }>(`/api/users/${id}`)
+}
+
 export async function listUsers(query: {
   limit: number
   offset: number
   search?: string
+  /** Liste assurés ou liste équipe (API `user_scope`). */
+  userScope?: 'insured' | 'staff'
 }): Promise<ListUsersResponse> {
   const p = new URLSearchParams()
   p.set('limit', String(query.limit))
   p.set('offset', String(query.offset))
   if (query.search?.trim()) p.set('search', query.search.trim())
+  if (query.userScope) p.set('user_scope', query.userScope)
   return apiFetchWithAuth<ListUsersResponse>(`/api/users?${p.toString()}`)
 }
 
@@ -45,6 +52,26 @@ export async function sendInvite(body: { email: string; role: string }): Promise
   return apiFetchWithAuth('/api/auth/invite', {
     method: 'POST',
     body: JSON.stringify(body)
+  })
+}
+
+export async function provisionInsuredUser(body: {
+  username: string
+  email: string
+  first_name?: string | null
+  last_name?: string | null
+  /** `true` : envoie l’e-mail 1er accès. `false` ou omis (défaut) : fiche seule, renvoi manuel. */
+  send_welcome_email?: boolean
+}): Promise<{ message: string; data: AuthUser }> {
+  return apiFetchWithAuth('/api/users/insured-provision', {
+    method: 'POST',
+    body: JSON.stringify(body)
+  })
+}
+
+export async function resendInsuredWelcome(id: number): Promise<{ message: string }> {
+  return apiFetchWithAuth(`/api/users/${id}/resend-welcome`, {
+    method: 'POST'
   })
 }
 

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { Pressable, ScrollView } from 'react-native'
 import { useLocalSearchParams, useNavigation, useRouter, type Href } from 'expo-router'
-import * as DocumentPicker from 'expo-document-picker'
 import { Button, Card, Text, useTheme, Menu } from 'react-native-paper'
 import { useAuth } from '@/features/auth'
 import {
@@ -20,9 +19,11 @@ import {
   canValidateClaim,
   canCreateFolderRecord,
   canForceCreateFolder,
-  canViewEntityHistory
+  canViewEntityHistory,
+  canDeclareOwnClaim
 } from '@/lib/roleAccess'
 import { BrandColors } from '@/constants/brand'
+import { pickDocumentFile } from '@/lib/pickDocument'
 
 type ClaimBody = SinisterDetailResponse['data']
 
@@ -104,25 +105,23 @@ export default function ClaimDetailScreen() {
       setError(null)
       setInfo(null)
       try {
-        const pick = await DocumentPicker.getDocumentAsync({
-          type: ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
-          copyToCacheDirectory: true
-        })
-        if (pick.canceled || !pick.assets?.[0]) {
+        const asset = await pickDocumentFile()
+        if (!asset) {
           return
         }
-        const asset = pick.assets[0]
-        const name = asset.name || 'piece.pdf'
-        const mime = asset.mimeType || 'application/pdf'
+        const { uri, name, mime } = asset
         const spec =
           kind === 'cni'
             ? { docType: 'ID_CARD' as const, field: 'cni_driver' as const }
             : kind === 'grise'
-              ? { docType: 'REGISTRATION_CARD' as const, field: 'vehicle_registration_doc_id' as const }
+              ? {
+                  docType: 'REGISTRATION_CARD' as const,
+                  field: 'vehicle_registration_doc_id' as const
+                }
               : { docType: 'INSURANCE_CERT' as const, field: 'insurance_certificate_id' as const }
         const form = new FormData()
         form.append('type', spec.docType)
-        form.append('file', { uri: asset.uri, name, type: mime } as never)
+        form.append('file', { uri, name, type: mime } as never)
         const up = await uploadDocument(form)
         await updateSinister(id, { [spec.field]: up.data.id })
         setInfo(
@@ -205,6 +204,28 @@ export default function ClaimDetailScreen() {
 
       {body ? (
         <>
+          {canDeclareOwnClaim(user.role) ? (
+            <Card
+              style={{ marginBottom: 12, borderColor: theme.colors.outlineVariant }}
+              mode="outlined"
+            >
+              <Card.Content>
+                <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 6 }}>
+                  Pièces justificatives
+                </Text>
+                <Text
+                  variant="bodySmall"
+                  style={{ color: theme.colors.onSurfaceVariant, lineHeight: 20 }}
+                >
+                  CNI, carte grise et attestation sont en principe déposées par votre interlocuteur
+                  AssurMoi (chargé de clientèle / gestionnaire). Le dépôt du{' '}
+                  <Text style={{ fontWeight: '600' }}>RIB</Text> (perte totale) se fait depuis
+                  l’écran <Text style={{ fontWeight: '600' }}>Dossier</Text> lorsque l’étape est
+                  ouverte.
+                </Text>
+              </Card.Content>
+            </Card>
+          ) : null}
           <Card style={{ marginBottom: 12 }} mode="outlined">
             <Card.Content>
               <Text
@@ -261,7 +282,8 @@ export default function ClaimDetailScreen() {
               Historique du sinistre
             </Button>
           ) : null}
-          {showDepotPieces || body.cni_driver != null ||
+          {showDepotPieces ||
+          body.cni_driver != null ||
           body.vehicle_registration_doc_id != null ||
           body.insurance_certificate_id != null ? (
             <Card style={{ marginBottom: 12 }} mode="outlined">
@@ -273,11 +295,13 @@ export default function ClaimDetailScreen() {
                   <>
                     <Text
                       variant="bodySmall"
-                      style={{ color: theme.colors.onSurfaceVariant, marginBottom: 10, lineHeight: 20 }}
+                      style={{
+                        color: theme.colors.onSurfaceVariant,
+                        marginBottom: 10,
+                        lineHeight: 20
+                      }}
                     >
-                      Parcours cahier : importez chaque type (dépôt), le sinistre est mis à jour avec
-                      les id des documents (PUT), puis validez les pièces et enfin le sinistre
-                      (gestionnaire).
+                      Importez chaque type (dépôt), le sinistre est mis à jour.
                     </Text>
                     <Button
                       mode="outlined"
@@ -417,9 +441,10 @@ export default function ClaimDetailScreen() {
                   variant="bodySmall"
                   style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
                 >
-                  Le sinistre est validé. Pour <Text style={{ fontWeight: '600' }}>Créer le dossier</Text>{' '}
-                  sans forcer. Les <Text style={{ fontWeight: '600' }}>trois</Text> pièces
-                  (CNI, carte grise, attestation) sont obligatoire <Text style={{ fontWeight: '600' }}>et</Text>{' '}
+                  Le sinistre est validé. Pour{' '}
+                  <Text style={{ fontWeight: '600' }}>Créer le dossier</Text> sans forcer. Les{' '}
+                  <Text style={{ fontWeight: '600' }}>trois</Text> pièces (CNI, carte grise,
+                  attestation) sont obligatoire <Text style={{ fontWeight: '600' }}>et</Text>{' '}
                   chacune doit être validée.
                 </Text>
                 <Text
@@ -427,8 +452,8 @@ export default function ClaimDetailScreen() {
                   style={{ color: theme.colors.onSurfaceVariant, marginBottom: 10 }}
                 >
                   Si les pièces ne sont pas encore toutes validées : utilisez{' '}
-                  <Text style={{ fontWeight: '600' }}>Forcer la création</Text> (gestionnaire / admin) pour
-                  ouvrir le dossier quand même.
+                  <Text style={{ fontWeight: '600' }}>Forcer la création</Text> (gestionnaire /
+                  admin) pour ouvrir le dossier quand même.
                 </Text>
                 <Menu
                   visible={scenarioOpen}

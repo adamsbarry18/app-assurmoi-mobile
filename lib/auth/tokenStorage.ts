@@ -1,54 +1,23 @@
-import { Platform } from 'react-native'
-import * as SecureStore from 'expo-secure-store'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 const KEY_ACCESS = 'assurmoi.accessToken'
 const KEY_REFRESH = 'assurmoi.refreshToken'
 
-const isWeb = Platform.OS === 'web'
-
 async function getItem(key: string): Promise<string | null> {
-  if (isWeb) {
-    try {
-      if (typeof globalThis === 'undefined' || !('localStorage' in globalThis)) {
-        return null
-      }
-      return globalThis.localStorage.getItem(key)
-    } catch {
-      return null
-    }
-  }
   try {
-    return await SecureStore.getItemAsync(key)
+    return await AsyncStorage.getItem(key)
   } catch {
     return null
   }
 }
 
 async function setItem(key: string, value: string): Promise<void> {
-  if (isWeb) {
-    if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
-      globalThis.localStorage.setItem(key, value)
-    }
-    return
-  }
-  await SecureStore.setItemAsync(key, value, {
-    keychainAccessible: SecureStore.WHEN_UNLOCKED
-  })
+  await AsyncStorage.setItem(key, value)
 }
 
 async function removeItem(key: string): Promise<void> {
-  if (isWeb) {
-    try {
-      if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
-        globalThis.localStorage.removeItem(key)
-      }
-    } catch {
-      /* ignore */
-    }
-    return
-  }
   try {
-    await SecureStore.deleteItemAsync(key)
+    await AsyncStorage.removeItem(key)
   } catch {
     /* ignore */
   }
@@ -68,6 +37,10 @@ export async function setTokens(accessToken: string, refreshToken: string): Prom
 }
 
 export async function clearTokens(): Promise<void> {
-  await removeItem(KEY_ACCESS)
-  await removeItem(KEY_REFRESH)
+  try {
+    await AsyncStorage.multiRemove([KEY_ACCESS, KEY_REFRESH])
+  } catch {
+    await removeItem(KEY_ACCESS)
+    await removeItem(KEY_REFRESH)
+  }
 }
