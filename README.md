@@ -23,7 +23,7 @@ In the output, you'll find options to open the app in a
 - [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
 - [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Le code applicatif est sous **`src/`** (routes Expo Router : **`src/app/`**, API : **`src/api/`**, types : **`src/types/`**, etc.). L’alias TypeScript est **`@/*` → `./src/*`**. Ce projet utilise le [routage par fichiers](https://docs.expo.dev/router/introduction).
 
 ## Learn more
 
