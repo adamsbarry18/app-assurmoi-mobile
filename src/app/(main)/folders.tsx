@@ -22,8 +22,8 @@ export default function FoldersTab() {
   const load = useCallback(async () => {
     setError(null)
     try {
-      /* Pas de filtre assigned_officer_id : le cahier prévoit « l’ensemble des dossiers » pour le
-       * chargé de suivi ; l’API liste déjà tous les dossiers pour les rôles staff. */
+      /* Pas de filtre assigned_officer_id : liste complète des dossiers visibles pour le rôle
+       * (cahier fonctionnel). */
       const res = await fetchFolders({
         limit: 50,
         offset: 0

@@ -64,7 +64,7 @@ export default function HistoryScreen() {
     if (!user || !validParams || !isEntityType(entityTypeRaw)) {
       setLoading(false)
       if (user && !validParams) {
-        setError('Lien d’historique incomplet (type ou identifiant manquant).')
+        setError('Impossible d’ouvrir cet historique : informations manquantes ou lien incorrect.')
       }
       setRows([])
       return

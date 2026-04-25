@@ -173,8 +173,8 @@ export default function CreateClaimScreen() {
     >
       <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 16 }}>
         {isInsured
-          ? 'Déclaration de sinistre. Votre dossier sera examiné par un gestionnaire (validation requise). L’heure d’appel enregistrée est celle d’envoi du formulaire.'
-          : 'Déclaration pour l’équipe interne. L’heure d’enregistrement de l’appel est celle d’envoi du formulaire.'}
+          ? 'Déclaration de sinistre. Votre dossier sera examiné par un conseiller avant toute suite. L’heure d’appel indiquée est celle d’envoi du formulaire.'
+          : 'Déclaration pour l’équipe en charge des dossiers. L’heure d’enregistrement de l’appel est celle d’envoi du formulaire.'}
       </Text>
 
       {error ? <Text style={{ color: theme.colors.error, marginBottom: 12 }}>{error}</Text> : null}

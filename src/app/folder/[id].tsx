@@ -29,6 +29,7 @@ import {
   FOLDER_STEP_TYPE_OPTIONS,
   folderStepLinkedDocumentRule,
   folderStepTypeOptionsForScenario,
+  labelDocumentUploadType,
   labelFolderStatus,
   labelLinkedDocumentTypeForStep,
   labelScenario
@@ -221,13 +222,13 @@ export default function FolderDetailScreen() {
       const res = await patchFolderScenario(data.id, scenario)
       setData(res.data)
       setInfo(
-        'Scénario enregistré. Vous pouvez enchaîner avec les étapes (rapport, facture ou RIB selon le parcours).'
+        'Scénario enregistré. Vous pouvez ajouter les étapes prévues (ex. expertise, facture, RIB selon le cas).'
       )
     } catch (e) {
       setError(
         e instanceof ApiRequestError
           ? e.message
-          : 'Impossible d’enregistrer le scénario (déjà défini ou règles métier).'
+          : 'Impossible d’enregistrer le scénario (déjà défini ou non autorisé).'
       )
     } finally {
       setActionBusy(false)
@@ -274,12 +275,12 @@ export default function FolderDetailScreen() {
       const linked = folderStepLinkedDocumentRule(stepType, data.scenario)
       if (linked.required && docRaw === '') {
         setError(
-          `Cette étape exige l’identifiant d’un document déjà importé et validé (${labelLinkedDocumentTypeForStep(linked.apiDocumentType)}).`
+          `Cette étape exige l’identifiant d’une pièce déjà reçue : ${labelLinkedDocumentTypeForStep(linked.apiDocumentType)}.`
         )
         return
       }
       if (docRaw !== '' && (Number.isNaN(document_id) || (document_id ?? 0) < 1)) {
-        setError('Identifiant document invalide (nombre > 0) ou laissez vide.')
+        setError('Indiquez un numéro de document valide, ou laissez vide.')
         return
       }
       await postFolderStep(data.id, {
@@ -316,7 +317,7 @@ export default function FolderDetailScreen() {
         )
         setStepDocId(String(up.data.id))
         setInfo(
-          `Document n°${up.data.id} importé (${importDocType}). Vérifiez la validation gestionnaire si requis, puis enregistrez l’étape.`
+          `Pièce « ${labelDocumentUploadType(importDocType)} » reçue (n°${up.data.id}). Enregistrez l’étape une fois le document contrôlé si besoin.`
         )
       } catch (e) {
         setError(e instanceof ApiRequestError ? e.message : 'Import du document impossible.')
@@ -369,7 +370,7 @@ export default function FolderDetailScreen() {
           })
         )
         setInfo(
-          `Document n°${up.data.id} reçu (${insuredExtraType}). Un gestionnaire pourra le valider.`
+          `Pièce « ${labelDocumentUploadType(insuredExtraType)} » enregistrée (n°${up.data.id}). Elle sera vérifiée par nos équipes.`
         )
         await load()
       } catch (e) {
@@ -535,7 +536,7 @@ export default function FolderDetailScreen() {
                       loading={actionBusy}
                       disabled={actionBusy}
                     >
-                      Choisir REPAIRABLE ou TOTAL_LOSS
+                      Choisir le scénario
                     </Button>
                   }
                 >
@@ -543,13 +544,13 @@ export default function FolderDetailScreen() {
                     onPress={() => {
                       void onSetScenario('REPAIRABLE')
                     }}
-                    title="Véhicule réparable (REPAIRABLE)"
+                    title="Véhicule réparable"
                   />
                   <Menu.Item
                     onPress={() => {
                       void onSetScenario('TOTAL_LOSS')
                     }}
-                    title="Perte totale (TOTAL_LOSS)"
+                    title="Perte totale"
                   />
                 </Menu>
               </Card.Content>

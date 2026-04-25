@@ -224,7 +224,7 @@ export function FolderAddStepForm({
                   ]}
                 >
                   <Text variant="bodySmall" style={{ flex: 1 }} numberOfLines={1}>
-                    Enreg. API : {docTypeOptions.find((o) => o.value === importDocType)?.label ?? importDocType}
+                    Type de pièce : {docTypeOptions.find((o) => o.value === importDocType)?.label ?? importDocType}
                   </Text>
                   <MaterialCommunityIcons
                     name="chevron-down"

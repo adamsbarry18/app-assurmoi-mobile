@@ -152,11 +152,11 @@ export default function DocumentDetailScreen() {
       setLastSignatureLink(link)
       setInfo(
         link
-          ? 'Demande Yousign créée. Ouvrez le lien pour faire signer le document.'
-          : 'Demande Yousign créée. Consultez Yousign ou l’historique pour le lien de signature.'
+          ? 'Demande de signature créée. Ouvrez le lien pour faire signer le document.'
+          : 'Demande de signature créée. Consultez l’historique du dossier pour retrouver le lien si besoin.'
       )
     } catch (e) {
-      setError(e instanceof ApiRequestError ? e.message : 'Signature Yousign impossible.')
+      setError(e instanceof ApiRequestError ? e.message : 'Envoi de la demande de signature impossible.')
     } finally {
       setSigning(false)
     }
@@ -307,7 +307,7 @@ export default function DocumentDetailScreen() {
                   color: meta.is_validated ? theme.colors.primary : theme.colors.onSurface
                 }}
               >
-                {meta.is_validated ? 'Validé' : 'En attente de validation interne'}
+                {meta.is_validated ? 'Validé' : 'En attente de validation par nos équipes'}
               </Text>
               {meta.uploaded_at ? (
                 <>
@@ -324,8 +324,8 @@ export default function DocumentDetailScreen() {
                 variant="bodySmall"
                 style={{ color: theme.colors.onSurfaceVariant, marginTop: 12, lineHeight: 20 }}
               >
-                Images et texte : aperçu dans l’app. PDF : aperçu intégré si le fichier est léger,
-                sinon ouverture avec une app du téléphone (lecteur PDF).
+                Images et texte : aperçu dans l’application. PDF : aperçu ici si le fichier est
+                léger, sinon ouverture avec l’application de lecture du téléphone.
               </Text>
               <Button
                 mode="contained-tonal"
@@ -366,7 +366,7 @@ export default function DocumentDetailScreen() {
                   style={{ marginTop: 12, borderRadius: 10 }}
                 >
                   {previewKind.type === 'pdf_external'
-                    ? 'Ouvrir le PDF (app système)'
+                    ? 'Ouvrir le PDF autrement'
                     : 'Ouvrir avec une autre application'}
                 </Button>
               ) : null}
@@ -435,14 +435,14 @@ export default function DocumentDetailScreen() {
           <Card mode="outlined" style={{ marginTop: 16 }}>
             <Card.Content>
               <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 6 }}>
-                Signature électronique (Yousign)
+                Signature électronique
               </Text>
               <Text
                 variant="bodySmall"
                 style={{ color: theme.colors.onSurfaceVariant, marginBottom: 12, lineHeight: 20 }}
               >
-                Réservé aux formats PDF ou DOCX côté serveur. Les images doivent être converties
-                avant envoi.
+                Réservé aux documents PDF ou Word. Convertissez les images en PDF si nécessaire
+                avant l’envoi.
               </Text>
               <TextInput
                 label="Prénom du signataire *"
@@ -471,14 +471,14 @@ export default function DocumentDetailScreen() {
                 autoCorrect={false}
               />
               <TextInput
-                label="Locale (ex. fr)"
+                label="Langue du signataire (ex. fr)"
                 value={locale}
                 onChangeText={setLocale}
                 mode="outlined"
                 style={{ marginBottom: 10 }}
               />
               <TextInput
-                label="Nom interne de la demande (optionnel)"
+                label="Titre de la demande (optionnel)"
                 value={requestName}
                 onChangeText={setRequestName}
                 mode="outlined"
@@ -528,7 +528,7 @@ export default function DocumentDetailScreen() {
                 disabled={signing}
                 style={{ borderRadius: 10, marginTop: 8 }}
               >
-                Lancer la demande Yousign
+                Envoyer la demande de signature
               </Button>
               {lastSignatureLink ? (
                 <Button

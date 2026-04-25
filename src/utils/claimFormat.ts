@@ -57,8 +57,8 @@ export type FolderStepLinkedDocumentApiType = 'EXPERT_REPORT' | 'INVOICE' | 'RIB
 
 export function labelLinkedDocumentTypeForStep(apiType: FolderStepLinkedDocumentApiType): string {
   const m: Record<FolderStepLinkedDocumentApiType, string> = {
-    EXPERT_REPORT: 'rapport d’expertise (EXPERT_REPORT)',
-    INVOICE: 'facture / devis atelier (INVOICE)',
+    EXPERT_REPORT: 'Rapport d’expertise',
+    INVOICE: 'Facture ou devis atelier',
     RIB: 'RIB'
   }
   return m[apiType]
@@ -123,6 +123,13 @@ export const API_DOCUMENT_UPLOAD_TYPES: { value: string; label: string }[] = [
   { value: 'RIB', label: 'RIB' },
   { value: 'SIGNATURE', label: 'Signature (photo, scan ou image)' }
 ]
+
+/** Libellé lisible pour un type de pièce (sans code technique). */
+export function labelDocumentUploadType(value: string | undefined | null): string {
+  if (value == null || value === '') return 'Document'
+  const o = API_DOCUMENT_UPLOAD_TYPES.find((t) => t.value === value)
+  return o?.label ?? 'Document'
+}
 
 /** Sous-ensemble autorisé pour le rôle `INSURED` côté API `services/documents.js`. */
 const INSURED_UPLOAD_VALUES = new Set([

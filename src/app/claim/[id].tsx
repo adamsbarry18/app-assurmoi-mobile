@@ -99,7 +99,7 @@ export default function ClaimDetailScreen() {
         await createFolder(payload)
         setInfo(
           force
-            ? 'Dossier créé (mode forcé). Vérifiez les pièces côté back-office si besoin.'
+            ? 'Dossier créé. Vérifiez que toutes les pièces sont complètes dès que possible.'
             : 'Dossier créé. Vous pouvez l’ouvrir ci-dessous.'
         )
         await load()
@@ -134,7 +134,7 @@ export default function ClaimDetailScreen() {
         )
         await updateSinister(id, { [spec.field]: up.data.id })
         setInfo(
-          'Document importé et lié au sinistre. Faites valider chaque pièce (écran document), puis validez le sinistre.'
+          'Document enregistré et rattaché au sinistre. Ouvrez chaque pièce pour vérification, puis faites valider le sinistre.'
         )
         await load()
       } catch (e) {
@@ -663,7 +663,7 @@ export default function ClaimDetailScreen() {
                           setFolderScenario('none')
                           setScenarioOpen(false)
                         }}
-                        title="Non défini (API par défaut)"
+                        title="Scénario défini à l’ouverture"
                       />
                       <Menu.Item
                         onPress={() => {
