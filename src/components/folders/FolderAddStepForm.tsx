@@ -97,14 +97,11 @@ export function FolderAddStepForm({
             { backgroundColor: theme.colors.primaryContainer }
           ]}
         >
-          <MaterialCommunityIcons name="plus-circle-outline" size={22} color={BrandColors.primary} />
+          <MaterialCommunityIcons name="plus-circle-outline" size={20} color={BrandColors.primary} />
         </View>
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text variant="titleMedium" style={{ fontWeight: '700', color: theme.colors.onSurface }}>
+        <View style={{ flex: 1, marginLeft: 10 }}>
+          <Text variant="titleSmall" style={{ fontWeight: '700', color: theme.colors.onSurface }}>
             Nouvelle étape
-          </Text>
-          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 2 }}>
-            Renseignez l’action, un fichier si nécessaire, puis enregistrez.
           </Text>
         </View>
       </View>
@@ -120,7 +117,9 @@ export function FolderAddStepForm({
 
       {data.scenario ? (
         <>
-          <Text style={[styles.sectionLabel, { color: theme.colors.onSurfaceVariant }]}>
+          <Text
+            style={[styles.sectionLabel, { color: theme.colors.onSurfaceVariant, marginTop: 8 }]}
+          >
             Type d’étape
           </Text>
           <Menu
@@ -141,9 +140,9 @@ export function FolderAddStepForm({
               >
                 <MaterialCommunityIcons
                   name="format-list-checks"
-                  size={22}
+                  size={20}
                   color={BrandColors.primary}
-                  style={{ marginRight: 12 }}
+                  style={{ marginRight: 10 }}
                 />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text
@@ -156,7 +155,7 @@ export function FolderAddStepForm({
                 </View>
                 <MaterialCommunityIcons
                   name="chevron-down"
-                  size={22}
+                  size={20}
                   color={theme.colors.onSurfaceVariant}
                 />
               </Pressable>
@@ -181,10 +180,10 @@ export function FolderAddStepForm({
           <Text
             style={[
               styles.sectionLabel,
-              { color: theme.colors.onSurfaceVariant, marginTop: 20 }
+              { color: theme.colors.onSurfaceVariant, marginTop: 12 }
             ]}
           >
-            Justificatif
+            Fichier attendu
           </Text>
           <View
             style={[
@@ -194,12 +193,16 @@ export function FolderAddStepForm({
           >
             <MaterialCommunityIcons
               name="file-document-outline"
-              size={20}
+              size={18}
               color={BrandColors.primary}
-              style={{ marginRight: 10 }}
+              style={{ marginRight: 8 }}
             />
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurface, flex: 1, lineHeight: 20 }}>
-              Fichier attendu : {docTypeHuman}
+            <Text
+              variant="bodySmall"
+              numberOfLines={2}
+              style={{ color: theme.colors.onSurface, flex: 1, lineHeight: 18, fontSize: 13 }}
+            >
+              {docTypeHuman}
             </Text>
           </View>
           {showImportTypePicker ? (
@@ -212,7 +215,7 @@ export function FolderAddStepForm({
                   style={({ pressed }) => [
                     styles.selectRow,
                     {
-                      marginTop: 8,
+                      marginTop: 6,
                       borderColor: theme.colors.outline,
                       backgroundColor: pressed
                         ? theme.colors.surfaceVariant
@@ -220,13 +223,12 @@ export function FolderAddStepForm({
                     }
                   ]}
                 >
-                  <Text variant="bodyMedium" style={{ flex: 1 }} numberOfLines={1}>
-                    Type d’enregistrement :{' '}
-                    {docTypeOptions.find((o) => o.value === importDocType)?.label ?? importDocType}
+                  <Text variant="bodySmall" style={{ flex: 1 }} numberOfLines={1}>
+                    Enreg. API : {docTypeOptions.find((o) => o.value === importDocType)?.label ?? importDocType}
                   </Text>
                   <MaterialCommunityIcons
                     name="chevron-down"
-                    size={20}
+                    size={18}
                     color={theme.colors.onSurfaceVariant}
                   />
                 </Pressable>
@@ -244,10 +246,10 @@ export function FolderAddStepForm({
               ))}
             </Menu>
           ) : null}
-          <View style={{ marginTop: 8 }}>
+          <View style={{ marginTop: 4 }}>
             <DocumentSourceField
-              label="Déposer le fichier"
-              placeholder="Photo, galerie ou fichier…"
+              label="Choisir un fichier"
+              placeholder="Touchez pour photo, galerie ou PDF"
               busy={importBusy}
               disabled={importBusy || actionBusy}
               onPick={(f) => void onImportDocument(f)}
@@ -261,13 +263,13 @@ export function FolderAddStepForm({
           <Text
             style={[
               styles.sectionLabel,
-              { color: theme.colors.onSurfaceVariant, marginTop: 20 }
+              { color: theme.colors.onSurfaceVariant, marginTop: 12 }
             ]}
           >
             Fichier (optionnel)
           </Text>
-          <HelperText type="info" padding="none" style={{ marginBottom: 8, marginTop: 0 }}>
-            Import seulement si un document doit être rattaché à l’étape.
+          <HelperText type="info" padding="none" style={{ marginBottom: 4, marginTop: 0, fontSize: 12 }}>
+            Rattachez un document seulement si l’étape l’impose.
           </HelperText>
           {docTypeOptions.length > 1 ? (
             <Menu
@@ -310,8 +312,8 @@ export function FolderAddStepForm({
             </Menu>
           ) : null}
           <DocumentSourceField
-            label="Déposer un fichier"
-            placeholder="Photo, galerie ou fichier…"
+            label="Choisir un fichier"
+            placeholder="Touchez pour photo, galerie ou PDF"
             busy={importBusy}
             disabled={importBusy || actionBusy}
             onPick={(f) => void onImportDocument(f)}
@@ -324,7 +326,7 @@ export function FolderAddStepForm({
           <Text
             style={[
               styles.sectionLabel,
-              { color: theme.colors.onSurfaceVariant, marginTop: 20 }
+              { color: theme.colors.onSurfaceVariant, marginTop: 12 }
             ]}
           >
             Détails
@@ -334,28 +336,32 @@ export function FolderAddStepForm({
             value={stepValue}
             onChangeText={setStepValue}
             mode="outlined"
-            style={{ marginBottom: 4 }}
+            style={{ marginBottom: 2 }}
+            dense
             multiline
             numberOfLines={2}
-            placeholder="Ex. ref. atelier, commentaire…"
+            placeholder="Réf. atelier, commentaire…"
           />
           <TextInput
             label={
               addStepDocRule.required
-                ? 'N° document (souvent rempli après import)'
+                ? 'N° document'
                 : 'N° document (optionnel)'
             }
             value={stepDocId}
             onChangeText={setStepDocId}
             mode="outlined"
             keyboardType="number-pad"
-            style={{ marginBottom: 4 }}
-            placeholder="Ex. 12345"
+            style={{ marginBottom: 0 }}
+            dense
+            placeholder="Souvent rempli par l’import"
           />
           {addStepDocRule.required ? (
-            <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4, marginBottom: 4 }}>
-              Obligatoire si l’étape exige un justificatif déjà connu côté système. Sinon laissez
-              l’import le renseigner.
+            <Text
+              variant="labelSmall"
+              style={{ color: theme.colors.onSurfaceVariant, marginTop: 4, lineHeight: 16 }}
+            >
+              Saisir le n° connu, ou laisser l’import l’inscrire.
             </Text>
           ) : null}
         </>
@@ -368,8 +374,8 @@ export function FolderAddStepForm({
           onPress={onSubmit}
           loading={actionBusy}
           disabled={actionBusy}
-          style={{ marginTop: 20, borderRadius: 12 }}
-          contentStyle={{ paddingVertical: 6 }}
+          style={{ marginTop: 12, borderRadius: 12 }}
+          contentStyle={{ paddingVertical: 4 }}
         >
           Enregistrer l’étape
         </Button>
@@ -380,46 +386,45 @@ export function FolderAddStepForm({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 18,
-    marginBottom: 16
+    padding: 14,
+    marginBottom: 12
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4
+    marginBottom: 2
   },
   headerIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center'
   },
   sectionLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
-    marginBottom: 8,
-    marginTop: 2
+    marginBottom: 6
   },
   selectRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10
   },
   hintPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     marginBottom: 0
   }
 })

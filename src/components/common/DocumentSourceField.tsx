@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react'
-import { Platform, Pressable, View } from 'react-native'
-import { ActivityIndicator, Menu, Text, TextInput, useTheme } from 'react-native-paper'
+import { Platform, Pressable, StyleSheet, View } from 'react-native'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { ActivityIndicator, Menu, Text, useTheme } from 'react-native-paper'
+import { BrandColors } from '@/constants/brand'
 import {
   pickDocumentBySource,
   type MediaSource,
@@ -8,26 +10,28 @@ import {
 } from '@/utils/pickDocument'
 
 type DocumentSourceFieldProps = {
-  /** Libellé du champ (Material) */
+  /** Action principale (ex. « Importer le fichier ») */
   label: string
-  /** Texte d’aide sous le titre de section (optionnel) */
+  /** Aide optionnelle au-dessus de la ligne */
   description?: string
-  /** Rappel dans le champ vide */
+  /** Sous-texte (sources) */
   placeholder?: string
   busy?: boolean
   disabled?: boolean
-  /** Après sélection d’une source et d’un fichier ; peut être async (upload). */
   onPick: (file: PickedDocumentFile) => void | Promise<void>
 }
 
+const DEFAULT_PLACEHOLDER = 'Photo, galerie ou fichier'
+const ROW_ICON = 24
+
 /**
- * Champ type « outline » : au toucher, menu **Prendre une photo** | **Photothèque** | **Fichier** (PDF, etc.).
- * La caméra est masquée sur le web.
+ * Ligne d’import compacte (réglages / apps bancaire) : un toucher ouvre
+ * le menu appareil photo · photothèque · fichier.
  */
 export function DocumentSourceField({
   label,
   description,
-  placeholder = 'Appuyer pour choisir : photo, galerie ou fichier…',
+  placeholder = DEFAULT_PLACEHOLDER,
   busy = false,
   disabled = false,
   onPick
@@ -56,11 +60,11 @@ export function DocumentSourceField({
   const showCamera = Platform.OS !== 'web'
 
   return (
-    <View style={{ marginBottom: 12 }}>
+    <View style={styles.wrapper}>
       {description ? (
         <Text
           variant="bodySmall"
-          style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8, lineHeight: 20 }}
+          style={{ color: theme.colors.onSurfaceVariant, marginBottom: 6, lineHeight: 18 }}
         >
           {description}
         </Text>
@@ -70,29 +74,60 @@ export function DocumentSourceField({
         onDismiss={() => setMenuOpen(false)}
         anchor={
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityHint="Choisir la source : appareil photo, photothèque ou fichiers"
             onPress={() => {
               if (!disabled && !loading) {
                 setMenuOpen(true)
               }
             }}
             disabled={disabled || loading}
+            style={({ pressed }) => [
+              styles.compactRow,
+              {
+                borderColor: theme.colors.outline,
+                backgroundColor: pressed
+                  ? theme.colors.surfaceVariant
+                  : theme.colors.elevation?.level1 ?? theme.colors.surface
+              },
+              (disabled || loading) && { opacity: 0.5 }
+            ]}
           >
-            <View pointerEvents="none">
-              <TextInput
-                mode="outlined"
-                label={label}
-                value=""
-                placeholder={placeholder}
-                editable={false}
-                right={
-                  loading ? (
-                    <TextInput.Icon icon={() => <ActivityIndicator size="small" />} />
-                  ) : (
-                    <TextInput.Icon icon="menu-down" />
-                  )
-                }
+            {loading ? (
+              <ActivityIndicator size="small" color={BrandColors.primary} style={styles.leadIcon} />
+            ) : (
+              <MaterialCommunityIcons
+                name="tray-arrow-up"
+                size={ROW_ICON}
+                color={disabled ? theme.colors.outline : BrandColors.primary}
+                style={styles.leadIcon}
               />
+            )}
+            <View style={styles.textCol}>
+              <Text
+                numberOfLines={1}
+                style={{
+                  fontSize: 15,
+                  fontWeight: '600',
+                  color: theme.colors.onSurface
+                }}
+              >
+                {label}
+              </Text>
+              <Text
+                numberOfLines={1}
+                variant="bodySmall"
+                style={{ color: theme.colors.onSurfaceVariant, marginTop: 1 }}
+              >
+                {placeholder}
+              </Text>
             </View>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={20}
+              color={theme.colors.onSurfaceVariant}
+            />
           </Pressable>
         }
       >
@@ -106,7 +141,7 @@ export function DocumentSourceField({
         <Menu.Item
           leadingIcon="image-multiple"
           onPress={() => void runSource('library')}
-          title="Bibliothèque photos"
+          title="Photothèque"
         />
         <Menu.Item
           leadingIcon="file-document-outline"
@@ -117,3 +152,25 @@ export function DocumentSourceField({
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  wrapper: {
+    marginBottom: 8
+  },
+  compactRow: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12
+  },
+  leadIcon: {
+    marginRight: 10
+  },
+  textCol: {
+    flex: 1,
+    minWidth: 0
+  }
+})
