@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, View } from 'react-native'
+import { Alert, ScrollView, View } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useLocalSearchParams, useNavigation, useRouter, type Href } from 'expo-router'
 import {
@@ -34,7 +34,7 @@ import {
   canDeclareOwnClaim
 } from '@/utils/roleAccess'
 import { BrandColors } from '@/constants/brand'
-import { DocumentSourceField } from '@/components/common/DocumentSourceField'
+import { InsuredObligatoryDocRow } from '@/components/claim/InsuredObligatoryDocRow'
 import type { PickedDocumentFile } from '@/utils/pickDocument'
 import { buildDocumentMultipartForm } from '@/utils/documentFormData'
 
@@ -61,6 +61,11 @@ export default function ClaimDetailScreen() {
   const [title, setTitle] = useState('Sinistre')
   const [body, setBody] = useState<ClaimBody | null>(null)
   const [pieceBusy, setPieceBusy] = useState<'cni' | 'grise' | 'att' | null>(null)
+  const [sendingStaged, setSendingStaged] = useState(false)
+  /** Fichiers choisis, non encore envoyés à l’API (validation par le bouton en bas) */
+  const [stagedPicks, setStagedPicks] = useState<
+    Partial<Record<'cni' | 'grise' | 'att', PickedDocumentFile>>
+  >({})
   const [mainTab, setMainTab] = useState<'apercu' | 'pieces' | 'gestion'>('apercu')
 
   const id = Number.parseInt(String(rawId), 10)
@@ -112,36 +117,114 @@ export default function ClaimDetailScreen() {
     [id, folderScenario, load]
   )
 
-  const uploadObligatoryPiece = useCallback(
-    async (kind: 'cni' | 'grise' | 'att', asset: PickedDocumentFile) => {
-      if (Number.isNaN(id) || id < 1) return
-      setPieceBusy(kind)
-      setError(null)
-      setInfo(null)
-      try {
-        const { uri, name, mime } = asset
-        const spec =
-          kind === 'cni'
-            ? { docType: 'ID_CARD' as const, field: 'cni_driver' as const }
-            : kind === 'grise'
-              ? {
-                  docType: 'REGISTRATION_CARD' as const,
-                  field: 'vehicle_registration_doc_id' as const
-                }
-              : { docType: 'INSURANCE_CERT' as const, field: 'insurance_certificate_id' as const }
+  const kindToSpec = useCallback(
+    (kind: 'cni' | 'grise' | 'att') =>
+      kind === 'cni'
+        ? { docType: 'ID_CARD' as const, field: 'cni_driver' as const }
+        : kind === 'grise'
+          ? {
+              docType: 'REGISTRATION_CARD' as const,
+              field: 'vehicle_registration_doc_id' as const
+            }
+          : { docType: 'INSURANCE_CERT' as const, field: 'insurance_certificate_id' as const },
+    []
+  )
+
+  const clearStagedPick = useCallback((kind: 'cni' | 'grise' | 'att') => {
+    setStagedPicks((s) => {
+      if (s[kind] == null) return s
+      const n = { ...s }
+      delete n[kind]
+      return n
+    })
+  }, [])
+
+  const sendStagedPicks = useCallback(async () => {
+    if (Number.isNaN(id) || id < 1) return
+    setSendingStaged(true)
+    setError(null)
+    setInfo(null)
+    const order = ['cni', 'grise', 'att'] as const
+    const working: Partial<Record<'cni' | 'grise' | 'att', PickedDocumentFile>> = {
+      ...stagedPicks
+    }
+    const keys = order.filter((k) => working[k] != null)
+    if (keys.length === 0) {
+      setSendingStaged(false)
+      return
+    }
+    try {
+      for (const kind of keys) {
+        const file = working[kind]
+        if (!file) continue
+        const spec = kindToSpec(kind)
+        const { uri, name, mime } = file
         const up = await uploadDocument(
           buildDocumentMultipartForm(spec.docType, { uri, name, mime })
         )
         await updateSinister(id, { [spec.field]: up.data.id })
-        setInfo(
-          'Document enregistré et rattaché au sinistre. Ouvrez chaque pièce pour vérification, puis faites valider le sinistre.'
-        )
-        await load()
-      } catch (e) {
-        setError(e instanceof ApiRequestError ? e.message : 'Dépôt ou rattachement impossible.')
-      } finally {
-        setPieceBusy(null)
+        delete working[kind]
       }
+      setStagedPicks({})
+      setInfo('Pièces enregistrées sur le sinistre.')
+      await load()
+    } catch (e) {
+      setStagedPicks(working)
+      setError(
+        e instanceof ApiRequestError
+          ? e.message
+          : 'Envoi d’au moins une pièce impossible. Les fichiers non envoyés restent en brouillon.'
+      )
+      void load()
+    } finally {
+      setSendingStaged(false)
+    }
+  }, [id, kindToSpec, load, stagedPicks])
+
+  const removeObligatoryPiece = useCallback(
+    (kind: 'cni' | 'grise' | 'att') => {
+      if (Number.isNaN(id) || id < 1) return
+      const field =
+        kind === 'cni'
+          ? 'cni_driver'
+          : kind === 'grise'
+            ? 'vehicle_registration_doc_id'
+            : 'insurance_certificate_id'
+      const label = kind === 'cni' ? 'la CNI' : kind === 'grise' ? 'la carte grise' : "l'attestation"
+      Alert.alert(
+        'Retirer la pièce',
+        `Retirer ${label} de ce sinistre ? Vous pourrez en envoyer une autre ensuite.`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          {
+            text: 'Retirer',
+            style: 'destructive',
+            onPress: () => {
+              void (async () => {
+                setPieceBusy(kind)
+                setError(null)
+                setInfo(null)
+                try {
+                  await updateSinister(id, { [field]: null })
+                  setStagedPicks((p) => {
+                    const n = { ...p }
+                    delete n[kind]
+                    return n
+                  })
+                  setInfo('Pièce retirée. Vous pouvez en envoyer une autre si besoin.')
+                  await load()
+                } catch (e) {
+                  setError(
+                    e instanceof ApiRequestError ? e.message : 'Retrait de la pièce impossible.'
+                  )
+                } finally {
+                  setPieceBusy(null)
+                }
+              })()
+            }
+          }
+        ]
+      )
     },
     [id, load]
   )
@@ -510,102 +593,110 @@ export default function ClaimDetailScreen() {
           {mainTab === 'pieces' && showPiecesTab ? (
             <Card style={{ marginBottom: 12 }} mode="outlined">
               <Card.Content>
-                <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 8 }}>
-                  CNI, carte grise, attestation
+                <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 4 }}>
+                  Pièces : CNI, carte grise, attestation
+                </Text>
+                <Text
+                  variant="bodySmall"
+                  style={{
+                    color: theme.colors.onSurfaceVariant,
+                    marginBottom: 4,
+                    lineHeight: 20
+                  }}
+                >
+                  {canDeclareOwnClaim(user.role)
+                    ? 'Sélectionnez chaque document (photo, galerie ou fichier), puis validez en bas. Contrôle par un gestionnaire ensuite. RIB (perte totale) : onglet Dossier.'
+                    : 'Choix des fichiers en brouillon, puis envoi groupé. Touchez l’aperçu pour le détail des pièces déjà reçues.'}
                 </Text>
                 {showDepotPieces ? (
-                  <>
-                    <Text
-                      variant="bodySmall"
-                      style={{
-                        color: theme.colors.onSurfaceVariant,
-                        marginBottom: 10,
-                        lineHeight: 20
-                      }}
-                    >
-                      {canDeclareOwnClaim(user.role) ? (
-                        <>
-                          Trois envois distincts, puis validation par un gestionnaire. RIB
-                          éventuel : onglet Dossier (perte totale) ou ici.
-                        </>
-                      ) : (
-                        <>Import par type, le sinistre est mis à jour automatiquement.</>
-                      )}
-                    </Text>
-                    <DocumentSourceField
-                      label={
-                        body.cni_driver != null
-                          ? `CNI / pièce d’identité (n°${body.cni_driver})`
-                          : 'CNI / pièce d’identité'
-                      }
-                      description="Touchez le champ, puis : photo, photothèque ou fichier."
-                      busy={pieceBusy === 'cni'}
-                      disabled={pieceBusy != null}
-                      onPick={(f) => void uploadObligatoryPiece('cni', f)}
-                    />
-                    <DocumentSourceField
-                      label={
-                        body.vehicle_registration_doc_id != null
-                          ? `Carte grise (n°${body.vehicle_registration_doc_id})`
-                          : 'Carte grise'
-                      }
-                      description="Même principe : appareil photo, galerie ou fichier scanné."
-                      busy={pieceBusy === 'grise'}
-                      disabled={pieceBusy != null}
-                      onPick={(f) => void uploadObligatoryPiece('grise', f)}
-                    />
-                    <DocumentSourceField
-                      label={
-                        body.insurance_certificate_id != null
-                          ? `Attestation d’assurance (n°${body.insurance_certificate_id})`
-                          : 'Attestation d’assurance'
-                      }
-                      description="Photo de la charte, PDF ou autre format accepté."
-                      busy={pieceBusy === 'att'}
-                      disabled={pieceBusy != null}
-                      onPick={(f) => void uploadObligatoryPiece('att', f)}
-                    />
-                  </>
-                ) : null}
-                {body.cni_driver != null ? (
-                  <Pressable
-                    onPress={() => router.push(`/document/${body.cni_driver}` as Href)}
-                    style={{ marginBottom: 6 }}
+                  <Text
+                    variant="labelSmall"
+                    style={{ color: theme.colors.outline, marginBottom: 12, lineHeight: 16 }}
                   >
-                    <Text variant="bodySmall" style={{ color: theme.colors.primary }}>
-                      CNI / pièce d’identité — document n°{body.cni_driver}
-                    </Text>
-                  </Pressable>
-                ) : null}
-                {body.vehicle_registration_doc_id != null ? (
-                  <Pressable
-                    onPress={() =>
-                      router.push(`/document/${body.vehicle_registration_doc_id}` as Href)
+                    {
+                      'Aucun envoi serveur tant que vous n’appuyez pas sur le bouton « Envoyer les pièces » ci-dessous.'
                     }
-                    style={{ marginBottom: 6 }}
-                  >
-                    <Text variant="bodySmall" style={{ color: theme.colors.primary }}>
-                      Carte grise — document n°{body.vehicle_registration_doc_id}
-                    </Text>
-                  </Pressable>
+                  </Text>
                 ) : null}
-                {body.insurance_certificate_id != null ? (
-                  <Pressable
-                    onPress={() =>
-                      router.push(`/document/${body.insurance_certificate_id}` as Href)
-                    }
+                <InsuredObligatoryDocRow
+                  title="CNI / pièce d’identité"
+                  documentId={body.cni_driver ?? null}
+                  stagedFile={stagedPicks.cni ?? null}
+                  isValidated={body.cniDocument == null ? null : Boolean(body.cniDocument.is_validated)}
+                  showPicker={showDepotPieces}
+                  busy={sendingStaged || pieceBusy === 'cni'}
+                  anyBusy={sendingStaged || pieceBusy != null}
+                  onPick={(f) => setStagedPicks((s) => ({ ...s, cni: f }))}
+                  onRemove={
+                    showDepotPieces && !sendingStaged
+                      ? stagedPicks.cni
+                        ? () => clearStagedPick('cni')
+                        : body.cni_driver != null
+                          ? () => removeObligatoryPiece('cni')
+                          : undefined
+                      : undefined
+                  }
+                />
+                <InsuredObligatoryDocRow
+                  title="Carte grise"
+                  documentId={body.vehicle_registration_doc_id ?? null}
+                  stagedFile={stagedPicks.grise ?? null}
+                  isValidated={
+                    body.registrationDocument == null
+                      ? null
+                      : Boolean(body.registrationDocument.is_validated)
+                  }
+                  showPicker={showDepotPieces}
+                  busy={sendingStaged || pieceBusy === 'grise'}
+                  anyBusy={sendingStaged || pieceBusy != null}
+                  onPick={(f) => setStagedPicks((s) => ({ ...s, grise: f }))}
+                  onRemove={
+                    showDepotPieces && !sendingStaged
+                      ? stagedPicks.grise
+                        ? () => clearStagedPick('grise')
+                        : body.vehicle_registration_doc_id != null
+                          ? () => removeObligatoryPiece('grise')
+                          : undefined
+                      : undefined
+                  }
+                />
+                <InsuredObligatoryDocRow
+                  title="Attestation d’assurance"
+                  documentId={body.insurance_certificate_id ?? null}
+                  stagedFile={stagedPicks.att ?? null}
+                  isValidated={
+                    body.insuranceDocument == null
+                      ? null
+                      : Boolean(body.insuranceDocument.is_validated)
+                  }
+                  showPicker={showDepotPieces}
+                  busy={sendingStaged || pieceBusy === 'att'}
+                  anyBusy={sendingStaged || pieceBusy != null}
+                  onPick={(f) => setStagedPicks((s) => ({ ...s, att: f }))}
+                  onRemove={
+                    showDepotPieces && !sendingStaged
+                      ? stagedPicks.att
+                        ? () => clearStagedPick('att')
+                        : body.insurance_certificate_id != null
+                          ? () => removeObligatoryPiece('att')
+                          : undefined
+                      : undefined
+                  }
+                />
+                {showDepotPieces &&
+                (stagedPicks.cni != null || stagedPicks.grise != null || stagedPicks.att != null) ? (
+                  <Button
+                    mode="contained"
+                    onPress={() => void sendStagedPicks()}
+                    loading={sendingStaged}
+                    disabled={sendingStaged}
+                    buttonColor={BrandColors.primary}
+                    style={{ marginTop: 4, borderRadius: 10 }}
+                    contentStyle={{ paddingVertical: 4 }}
                   >
-                    <Text variant="bodySmall" style={{ color: theme.colors.primary }}>
-                      Attestation d’assurance — document n°{body.insurance_certificate_id}
-                    </Text>
-                  </Pressable>
+                    Envoyer les pièces
+                  </Button>
                 ) : null}
-                <Text
-                  variant="labelSmall"
-                  style={{ color: theme.colors.onSurfaceVariant, marginTop: 6 }}
-                >
-                  Touchez une ligne pour le détail / validation des pièces.
-                </Text>
               </Card.Content>
             </Card>
           ) : null}

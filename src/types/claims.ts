@@ -41,6 +41,15 @@ export type UserSummary = {
   role: string
 }
 
+export type SinisterDocumentSlot = {
+  id: number
+  type: string
+  storage_url?: string
+  is_validated?: boolean
+  uploaded_by_id?: number
+  uploaded_at?: string
+}
+
 export type SinisterDetailResponse = {
   data: SinisterRow & {
     driver_first_name?: string | null
@@ -51,6 +60,9 @@ export type SinisterDetailResponse = {
     cni_driver?: number | null
     vehicle_registration_doc_id?: number | null
     insurance_certificate_id?: number | null
+    cniDocument?: SinisterDocumentSlot | null
+    registrationDocument?: SinisterDocumentSlot | null
+    insuranceDocument?: SinisterDocumentSlot | null
     creator?: UserSummary | null
     insuredUser?: UserSummary | null
     folder?: (SinisterFolderSummary & { id: number; assignedOfficer?: UserSummary | null }) | null
