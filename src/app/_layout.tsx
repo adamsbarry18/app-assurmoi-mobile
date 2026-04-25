@@ -50,18 +50,9 @@ export default function RootLayout() {
                 }}
               />
               <Stack.Screen
-                name="admin-users"
+                name="users/[scope]"
                 options={{
-                  title: 'Équipe',
-                  headerStyle: { backgroundColor: assurMoiLightTheme.colors.primary },
-                  headerTintColor: assurMoiLightTheme.colors.onPrimary,
-                  headerShadowVisible: false
-                }}
-              />
-              <Stack.Screen
-                name="insured-users"
-                options={{
-                  title: 'Assurés',
+                  title: 'Utilisateurs',
                   headerStyle: { backgroundColor: assurMoiLightTheme.colors.primary },
                   headerTintColor: assurMoiLightTheme.colors.onPrimary,
                   headerShadowVisible: false

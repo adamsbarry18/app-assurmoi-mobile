@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native'
 import { useRouter } from 'expo-router'
+import { ROUTES } from '@/constants/routes'
 import { Button, HelperText, Switch, Text, TextInput, useTheme } from 'react-native-paper'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '@/auth'
@@ -56,7 +57,7 @@ export default function ProvisionInsuredScreen() {
       if (id != null) {
         router.replace(`/user/${id}`)
       } else {
-        router.replace('/insured-users')
+        router.replace(ROUTES.usersInsured)
       }
     } catch (e) {
       setError(

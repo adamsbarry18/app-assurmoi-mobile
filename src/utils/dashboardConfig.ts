@@ -1,3 +1,5 @@
+import type { Href } from 'expo-router'
+import { ROUTES } from '@/constants/routes'
 import {
   canCreateSinister,
   canListUsers,
@@ -8,11 +10,8 @@ import {
 export type QuickAction = {
   id: string
   label: string
-  /** Nom d’icône MaterialCommunityIcons */
   icon: string
-  /** Route interne (ex. /admin-users) */
-  href?: `/${string}`
-  /** Cible d’onglet (ex. claims) — pas d’onglet « plus » : doublon avec la barre du bas. */
+  href?: Href
   tab?: 'claims' | 'folders'
 }
 
@@ -84,10 +83,10 @@ export function getQuickActions(role: string): QuickAction[] {
       }
     : null
   const teamUsersAction: QuickAction | null = canListUsers(r)
-    ? { id: 'team-users', label: 'Équipe', icon: 'account-tie', href: '/admin-users' }
+    ? { id: 'team-users', label: 'Équipe', icon: 'account-tie', href: ROUTES.usersStaff }
     : null
   const insuredUsersAction: QuickAction | null = canListUsers(r)
-    ? { id: 'insured-users', label: 'Assurés', icon: 'account-heart', href: '/insured-users' }
+    ? { id: 'insured-users', label: 'Assurés', icon: 'account-heart', href: ROUTES.usersInsured }
     : null
   /** Fiche assuré (page dédiée) — e-mail 1er accès depuis la liste quand voulu. */
   const newInsuredAction: QuickAction | null = canProvisionInsuredAccount(r)
@@ -95,7 +94,7 @@ export function getQuickActions(role: string): QuickAction[] {
         id: 'new-insured',
         label: 'Nouvel assuré',
         icon: 'account-plus-outline',
-        href: '/provision-insured'
+        href: ROUTES.provisionInsured
       }
     : null
 

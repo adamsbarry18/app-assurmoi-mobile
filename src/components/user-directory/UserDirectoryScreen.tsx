@@ -7,7 +7,8 @@ import {
   useWindowDimensions,
   View
 } from 'react-native'
-import { useFocusEffect, useNavigation, useRouter, type Href } from 'expo-router'
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router'
+import { ROUTES } from '@/constants/routes'
 import {
   ActivityIndicator,
   Button,
@@ -744,7 +745,7 @@ export function UserDirectoryScreen({
             bottom: 16,
             backgroundColor: theme.colors.secondaryContainer
           }}
-          onPress={() => router.push('/provision-insured' as Href)}
+          onPress={() => router.push(ROUTES.provisionInsured)}
           color={theme.colors.onSecondaryContainer}
           label="Nouvel assuré"
         />

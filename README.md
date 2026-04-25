@@ -89,12 +89,13 @@ app-assurmoi-mobile/
     │   ├── claim/           # Détail / création sinistre
     │   ├── folder/          # Dossier sinistre
     │   ├── document/        # Détail document
+    │   ├── users/           # `[scope].tsx` → /users/staff | /users/insured
     │   └── …
     ├── api/                 # Client HTTP, modules par domaine (*.api.ts), entrée @/api
     ├── auth/                # Contexte session, stockage des jetons (Secure Store)
     ├── components/          # UI réutilisable (dashboard, notifications, annuaire…)
     ├── config/              # env (URL API)
-    ├── constants/           # Thème, marque
+    ├── constants/           # Thème, marque, chemins Expo (`routes.ts`)
     ├── notifications/       # Panneau / contexte notifications
     ├── theme/               # Thème Paper
     ├── types/               # Types partagés
