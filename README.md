@@ -1,40 +1,124 @@
-# Welcome to your Expo app 👋
+# AssurMoi — application mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Client **React Native** ([Expo SDK 54](https://docs.expo.dev/)) pour l’espace assuré et les équipes sinistres : connexion sécurisée (JWT), tableau de bord, sinistres, dossiers, documents, notifications, administration des utilisateurs selon les rôles.
 
-## Get started
+| | |
+|---|---|
+| **Routage** | [Expo Router](https://docs.expo.dev/router/introduction/) (fichiers sous `src/app/`) |
+| **UI** | [React Native Paper](https://reactnativepaper.com/) (Material 3) |
+| **Langage** | TypeScript · alias `@/*` → `./src/*` |
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## Prérequis
 
-2. Start the app
+- **Node.js** v20+ et **npm** v10+
+- Compte développeur Apple / environnement Android si vous ciblez des émulateurs ou un appareil physique
+- **API AssurMoi** démarrée (voir le dépôt backend) pour les flux authentifiés
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## Installation
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+```bash
+cd app-assurmoi-mobile
+npm install
+```
 
-Le code applicatif est sous **`src/`** (routes Expo Router : **`src/app/`**, API : **`src/api/`**, types : **`src/types/`**, etc.). L’alias TypeScript est **`@/*` → `./src/*`**. Ce projet utilise le [routage par fichiers](https://docs.expo.dev/router/introduction).
+Copier la configuration d’exemple :
 
-## Learn more
+```bash
+cp .env.example .env
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Puis renseigner **`EXPO_PUBLIC_API_URL`** selon votre contexte (voir ci-dessous). Redémarrer le serveur Metro après toute modification du `.env`.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+---
 
-## Join the community
+## Configuration de l’API
 
-Join our community of developers creating universal apps.
+L’URL de base est résolue dans `src/config/env.ts` (`getApiBaseUrl()`).
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+| Contexte | Exemple `EXPO_PUBLIC_API_URL` |
+|------------|-------------------------------|
+| **Expo Web** (navigateur) + API sur la **même** machine | `http://localhost:3000` |
+| **Téléphone** (Expo Go) sur le Wi‑Fi, API sur le PC | `http://192.168.x.x:3000` (IP LAN du poste qui héberge l’API) |
+| **Émulateur Android** | Souvent inutile de variable : défaut dev `http://10.0.2.2:3000` |
+| **Simulateur iOS / Web** sans variable | Défaut dev `http://localhost:3000` |
+
+En **production** (`!__DEV__`), sans variable, l’URL retombe sur `http://localhost:3000` : adaptez `getApiBaseUrl()` ou fournissez une variable de build selon votre déploiement.
+
+> **Astuce** : sur le web, utiliser `localhost` pour joindre l’API Docker sur le même poste ; une IP LAN dans le navigateur peut provoquer des erreurs CORS ou « Failed to fetch » selon la config du serveur.
+
+---
+
+## Scripts npm
+
+| Commande | Description |
+|----------|-------------|
+| `npm start` | Démarre Metro (`expo start`) — QR code, choix iOS / Android / web |
+| `npm run android` | Lance sur émulateur / appareil Android |
+| `npm run ios` | Lance sur simulateur iOS (macOS) |
+| `npm run web` | Interface dans le navigateur |
+| `npm run start:tunnel` | Tunnel Expo (utile si le téléphone n’est pas sur le même réseau) |
+| `npm run start:docker` | Écoute LAN sur le port 8081 (stack Docker du monorepo) |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint |
+| `npm run format` | Prettier (écriture) |
+| `npm run format:check` | Prettier (contrôle seul) |
+| `npm run code:check` | Format + types + lint |
+
+---
+
+## Structure du dépôt
+
+```
+app-assurmoi-mobile/
+├── app.json                 # Métadonnées Expo (schéma deep link : assurmoiapp)
+├── package.json
+├── tsconfig.json            # paths "@/*" → "./src/*"
+└── src/
+    ├── app/                 # Expo Router : une route = un fichier
+    │   ├── _layout.tsx      # Layout racine (thème, auth…)
+    │   ├── (main)/          # Onglets : accueil, sinistres, dossiers, plus
+    │   ├── claim/           # Détail / création sinistre
+    │   ├── folder/          # Dossier sinistre
+    │   ├── document/        # Détail document
+    │   └── …
+    ├── api/                 # Client HTTP, modules par domaine (*.api.ts), entrée @/api
+    ├── auth/                # Contexte session, stockage des jetons (Secure Store)
+    ├── components/          # UI réutilisable (dashboard, notifications, annuaire…)
+    ├── config/              # env (URL API)
+    ├── constants/           # Thème, marque
+    ├── notifications/       # Panneau / contexte notifications
+    ├── theme/               # Thème Paper
+    ├── types/               # Types partagés
+    └── utils/               # Rôles, formatage, feedback écran, etc.
+```
+
+- **Authentification** : jetons d’accès / rafraîchissement stockés côté client ; requêtes via `apiFetchWithAuth` (rafraîchissement automatique en cas de 401).
+- **Deep links** (reset mot de passe, etc.) : schéma **`assurmoiapp`** défini dans `app.json` — doit rester aligné avec les liens générés par l’API (e-mail).
+
+---
+
+## Lier le dépôt à l’API
+
+1. Démarrer l’**API** (port **3000** par défaut).
+2. Renseigner **`EXPO_PUBLIC_API_URL`** dans `.env` si les défauts ne conviennent pas.
+3. Se connecter avec un compte connu (ex. comptes de seed sur l’environnement de dev du backend, si disponibles).
+
+Le backend **doit** accepter l’origine de votre app en **CORS** en développement (l’API AssurMoi le permet en principe) ; en production, configurer `CORS_ALLOWED_ORIGINS` côté serveur.
+
+---
+
+## Ressources
+
+- [Expo](https://docs.expo.dev/)
+- [Expo Router](https://docs.expo.dev/router/introduction/)
+- [React Native Paper](https://callstack.github.io/react-native-paper/)
+
+---
+
+## Licence
+
+Projet **privé** (champ `private: true` dans `package.json`).
