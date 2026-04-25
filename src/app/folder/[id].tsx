@@ -32,7 +32,9 @@ import {
   labelDocumentUploadType,
   labelFolderStatus,
   labelLinkedDocumentTypeForStep,
-  labelScenario
+  labelScenario,
+  shouldShowAddStepDocumentIdField,
+  shouldShowAddStepNoteField
 } from '@/utils/claimFormat'
 import {
   canAssignFolderOfficer,
@@ -45,6 +47,7 @@ import {
 import type { AuthUser } from '@/auth/types'
 import { BrandColors } from '@/constants/brand'
 import { DocumentSourceField } from '@/components/common/DocumentSourceField'
+import { PickedDocumentPreview } from '@/components/common/PickedDocumentPreview'
 import { FolderAddStepForm } from '@/components/folders/FolderAddStepForm'
 import { FolderStepTimeline } from '@/components/folders/FolderStepTimeline'
 import type { PickedDocumentFile } from '@/utils/pickDocument'
@@ -85,6 +88,9 @@ export default function FolderDetailScreen() {
   const [stepDocId, setStepDocId] = useState('')
   const [actionBusy, setActionBusy] = useState(false)
   const [stepImportBusy, setStepImportBusy] = useState(false)
+  const [importStepPreview, setImportStepPreview] = useState<PickedDocumentFile | null>(null)
+  const [ribImportPreview, setRibImportPreview] = useState<PickedDocumentFile | null>(null)
+  const [insuredImportPreview, setInsuredImportPreview] = useState<PickedDocumentFile | null>(null)
   const [importDocType, setImportDocType] = useState('EXPERT_REPORT')
   const [importTypeMenu, setImportTypeMenu] = useState(false)
   const [insuredExtraType, setInsuredExtraType] = useState('RIB')
@@ -149,6 +155,18 @@ export default function FolderDetailScreen() {
       setImportDocType(rule.apiDocumentType)
     }
   }, [data?.scenario, stepType])
+
+  useEffect(() => {
+    if (shouldShowAddStepNoteField(stepType)) return
+    setStepValue('')
+  }, [stepType])
+
+  useEffect(() => {
+    if (!data?.scenario) return
+    const rule = folderStepLinkedDocumentRule(stepType, data.scenario)
+    if (shouldShowAddStepDocumentIdField(rule, !!importStepPreview)) return
+    setStepDocId('')
+  }, [data?.scenario, stepType, importStepPreview])
 
   const showMidTab = useMemo(() => {
     if (!data || !user) return false
@@ -270,9 +288,11 @@ export default function FolderDetailScreen() {
     setActionBusy(true)
     setError(null)
     try {
-      const docRaw = stepDocId.trim()
-      const document_id = docRaw === '' ? null : Number.parseInt(docRaw, 10)
       const linked = folderStepLinkedDocumentRule(stepType, data.scenario)
+      const showDocId = shouldShowAddStepDocumentIdField(linked, !!importStepPreview)
+      const showNote = shouldShowAddStepNoteField(stepType)
+      const docRaw = showDocId ? stepDocId.trim() : ''
+      const document_id = docRaw === '' ? null : Number.parseInt(docRaw, 10)
       if (linked.required && docRaw === '') {
         setError(
           `Cette étape exige l’identifiant d’une pièce déjà reçue : ${labelLinkedDocumentTypeForStep(linked.apiDocumentType)}.`
@@ -285,11 +305,12 @@ export default function FolderDetailScreen() {
       }
       await postFolderStep(data.id, {
         step_type: stepType,
-        value: stepValue.trim() || null,
+        value: (showNote ? stepValue.trim() : '') || null,
         document_id: document_id ?? null
       })
       setStepValue('')
       setStepDocId('')
+      setImportStepPreview(null)
       setInfo('Étape enregistrée.')
       await load()
     } catch (e) {
@@ -304,6 +325,7 @@ export default function FolderDetailScreen() {
   const onImportStepDocument = useCallback(
     async (picked: PickedDocumentFile) => {
       if (!data?.scenario) return
+      setImportStepPreview(picked)
       setStepImportBusy(true)
       setError(null)
       setInfo(null)
@@ -321,6 +343,7 @@ export default function FolderDetailScreen() {
         )
       } catch (e) {
         setError(e instanceof ApiRequestError ? e.message : 'Import du document impossible.')
+        setImportStepPreview(null)
       } finally {
         setStepImportBusy(false)
       }
@@ -331,6 +354,7 @@ export default function FolderDetailScreen() {
   const onDepositRib = async (picked: PickedDocumentFile) => {
     setRibError(null)
     if (!data || data.is_closed) return
+    setRibImportPreview(picked)
     setUploading(true)
     try {
       const up = await uploadDocument(
@@ -341,8 +365,10 @@ export default function FolderDetailScreen() {
         })
       )
       await postFolderRibStep(data.id, up.data.id)
+      setRibImportPreview(null)
       await load()
     } catch (e) {
+      setRibImportPreview(null)
       setRibError(
         e instanceof ApiRequestError
           ? e.message
@@ -358,6 +384,7 @@ export default function FolderDetailScreen() {
   const onInsuredSupplementUpload = useCallback(
     async (picked: PickedDocumentFile) => {
       if (!data || data.is_closed) return
+      setInsuredImportPreview(picked)
       setInsuredExtraBusy(true)
       setError(null)
       setInfo(null)
@@ -372,8 +399,10 @@ export default function FolderDetailScreen() {
         setInfo(
           `Pièce « ${labelDocumentUploadType(insuredExtraType)} » enregistrée (n°${up.data.id}). Elle sera vérifiée par nos équipes.`
         )
+        setInsuredImportPreview(null)
         await load()
       } catch (e) {
+        setInsuredImportPreview(null)
         setError(e instanceof ApiRequestError ? e.message : 'Envoi impossible.')
       } finally {
         setInsuredExtraBusy(false)
@@ -624,6 +653,13 @@ export default function FolderDetailScreen() {
                   disabled={uploading}
                   onPick={(f) => void onDepositRib(f)}
                 />
+                {ribImportPreview ? (
+                  <PickedDocumentPreview
+                    file={ribImportPreview}
+                    busy={uploading}
+                    onRemove={uploading ? undefined : () => setRibImportPreview(null)}
+                  />
+                ) : null}
               </Card.Content>
             </Card>
           ) : null}
@@ -678,6 +714,13 @@ export default function FolderDetailScreen() {
                   disabled={insuredExtraBusy}
                   onPick={(f) => void onInsuredSupplementUpload(f)}
                 />
+                {insuredImportPreview ? (
+                  <PickedDocumentPreview
+                    file={insuredImportPreview}
+                    busy={insuredExtraBusy}
+                    onRemove={insuredExtraBusy ? undefined : () => setInsuredImportPreview(null)}
+                  />
+                ) : null}
               </Card.Content>
             </Card>
           ) : null}
@@ -704,6 +747,12 @@ export default function FolderDetailScreen() {
               onImportDocument={onImportStepDocument}
               actionBusy={actionBusy}
               importBusy={stepImportBusy}
+              importPreview={importStepPreview}
+              importPreviewHint={stepDocId.trim() ? `N° document ${stepDocId.trim()}` : null}
+              onClearImportPreview={() => {
+                setImportStepPreview(null)
+                setStepDocId('')
+              }}
             />
           ) : null}
             </>

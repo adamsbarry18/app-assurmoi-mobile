@@ -1,3 +1,4 @@
+import * as Device from 'expo-device'
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
 import { Alert, Platform } from 'react-native'
@@ -47,10 +48,18 @@ function alertPermission(msg: string): void {
 
 /**
  * Photo via l’appareil photo (image uniquement).
+ * Le simulateur iOS / certains émulateurs n’exposent pas de caméra : erreur gérée + message.
  */
 export async function pickImageFromCamera(): Promise<PickedDocumentFile | null> {
   if (Platform.OS === 'web') {
     alertPermission('La prise de photo n’est pas disponible sur le web : utilisez la photothèque ou un fichier.')
+    return null
+  }
+  if (!Device.isDevice) {
+    Alert.alert(
+      'Caméra indisponible',
+      'Le simulateur ne fournit pas d’appareil photo. Utilisez la photothèque ou un fichier, ou testez sur un iPhone / iPad réel.'
+    )
     return null
   }
   const { status } = await ImagePicker.requestCameraPermissionsAsync()
@@ -60,10 +69,23 @@ export async function pickImageFromCamera(): Promise<PickedDocumentFile | null> 
     )
     return null
   }
-  const res = await ImagePicker.launchCameraAsync({
-    mediaTypes: 'images' as ImagePicker.MediaType,
-    quality: 0.88
-  })
+  let res: ImagePicker.ImagePickerResult
+  try {
+    res = await ImagePicker.launchCameraAsync({
+      mediaTypes: 'images' as ImagePicker.MediaType,
+      quality: 0.88
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (/simulator|not available|camera/i.test(msg)) {
+      Alert.alert(
+        'Caméra indisponible',
+        'La caméra ne peut pas s’ouvrir sur cet environnement. Utilisez la photothèque ou un fichier.'
+      )
+      return null
+    }
+    throw e
+  }
   if (res.canceled || !res.assets?.[0]) {
     return null
   }

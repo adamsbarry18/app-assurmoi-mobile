@@ -3,4 +3,5 @@
  */
 export { LinkRow, type LinkRowProps } from './common/LinkRow'
 export { DocumentSourceField } from './common/DocumentSourceField'
+export { PickedDocumentPreview } from './common/PickedDocumentPreview'
 export { QuickActionGrid } from './dashboard/QuickActionGrid'

@@ -36,15 +36,15 @@ export function labelScenario(s: string | undefined | null): string {
   return s ?? '—'
 }
 
-/** Types d’étape alignés sur `folderWorkflow` (API) */
+/** Types d’étape alignés sur `folderWorkflow` (API) — libellés courts pour listes / menus mobiles. */
 export const FOLDER_STEP_TYPE_OPTIONS: { value: string; label: string }[] = [
-  { value: 'S1_EXPERT_REPORT', label: 'Rapport d’expertise (réparable)' },
-  { value: 'S1_INVOICE', label: 'Facture / devis atelier (réparable)' },
-  { value: 'S2_RIB', label: 'RIB — perte totale (doc validé ou dépôt assuré)' },
-  { value: 'PAYMENT_SETTLED', label: 'Règlement / indemnisation constaté' },
-  { value: 'THIRD_PARTY_REBILLING_CONFIRMED', label: 'Refacturation tiers — confirmée' },
-  { value: 'EXPERTISE_ECHEANCE', label: 'Échéance — expertise / convocation' },
-  { value: 'GENERIC_ECHEANCE', label: 'Échéance / relance (autre)' }
+  { value: 'S1_EXPERT_REPORT', label: 'Expertise' },
+  { value: 'S1_INVOICE', label: 'Facture / devis' },
+  { value: 'S2_RIB', label: 'RIB (perte totale)' },
+  { value: 'PAYMENT_SETTLED', label: 'Indemnisation' },
+  { value: 'THIRD_PARTY_REBILLING_CONFIRMED', label: 'Refacturation tiers' },
+  { value: 'EXPERTISE_ECHEANCE', label: 'Échéance expertise' },
+  { value: 'GENERIC_ECHEANCE', label: 'Relance (autre)' }
 ]
 
 export function labelFolderStepType(code: string | undefined | null): string {
@@ -85,6 +85,34 @@ export function folderStepLinkedDocumentRule(
     return { required: true, apiDocumentType: 'RIB' }
   }
   return { required: false }
+}
+
+/**
+ * Champs optionnels de la section « Détails » (formulaire nouvelle étape) :
+ * la note n’est proposée que pour les types où un libellé / une référence est courante.
+ * (S2_RIB = pièce seule, pas besoin d’encombrer l’écran.)
+ */
+export function shouldShowAddStepNoteField(stepType: string): boolean {
+  return (
+    stepType === 'S1_EXPERT_REPORT' ||
+    stepType === 'S1_INVOICE' ||
+    stepType === 'PAYMENT_SETTLED' ||
+    stepType === 'THIRD_PARTY_REBILLING_CONFIRMED' ||
+    stepType === 'EXPERTISE_ECHEANCE' ||
+    stepType === 'GENERIC_ECHEANCE'
+  )
+}
+
+/**
+ * N° document : affiché si l’étape est liée à un document (obligatoire), ou s’il y a
+ * un import côté formulaire (pièce optionnelle mais référencée).
+ */
+export function shouldShowAddStepDocumentIdField(
+  rule: { required: false } | { required: true; apiDocumentType: FolderStepLinkedDocumentApiType },
+  hasImportPreview: boolean
+): boolean {
+  if (rule.required) return true
+  return hasImportPreview
 }
 
 /** N’affiche que les types d’étape cohérents avec le scénario (évite ex. S2_RIB en réparable). */

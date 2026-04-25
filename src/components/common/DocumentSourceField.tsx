@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
-import { Platform, Pressable, StyleSheet, View } from 'react-native'
+import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native'
+import * as Device from 'expo-device'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { ActivityIndicator, Menu, Text, useTheme } from 'react-native-paper'
 import { BrandColors } from '@/constants/brand'
@@ -22,6 +23,7 @@ type DocumentSourceFieldProps = {
 }
 
 const DEFAULT_PLACEHOLDER = 'Photo, galerie ou fichier'
+const PLACEHOLDER_NO_CAMERA = 'Galerie ou fichier'
 const ROW_ICON = 24
 
 /**
@@ -49,6 +51,12 @@ export function DocumentSourceField({
         if (file) {
           await Promise.resolve(onPick(file))
         }
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e)
+        Alert.alert(
+          'Import impossible',
+          m || 'Réessayez ou choisissez la photothèque ou un fichier.'
+        )
       } finally {
         setPicking(false)
       }
@@ -57,7 +65,12 @@ export function DocumentSourceField({
   )
 
   const loading = busy || picking
-  const showCamera = Platform.OS !== 'web'
+  /** Simulateur / émulateur sans appareil photo réel : masquer l’option caméra */
+  const showCamera = Platform.OS !== 'web' && Device.isDevice
+  const sub =
+    placeholder === DEFAULT_PLACEHOLDER && !showCamera
+      ? PLACEHOLDER_NO_CAMERA
+      : placeholder
 
   return (
     <View style={styles.wrapper}>

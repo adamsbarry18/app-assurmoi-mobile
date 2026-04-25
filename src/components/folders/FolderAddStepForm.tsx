@@ -4,10 +4,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Button, HelperText, Menu, Surface, Text, TextInput, useTheme } from 'react-native-paper'
 import { BrandColors } from '@/constants/brand'
 import { DocumentSourceField } from '@/components/common/DocumentSourceField'
+import { PickedDocumentPreview } from '@/components/common/PickedDocumentPreview'
 import type { FolderDetailResponse } from '@/types/claims'
 import type { PickedDocumentFile } from '@/utils/pickDocument'
 import {
   labelLinkedDocumentTypeForStep,
+  shouldShowAddStepDocumentIdField,
+  shouldShowAddStepNoteField,
   type FolderStepLinkedDocumentApiType
 } from '@/utils/claimFormat'
 
@@ -41,6 +44,11 @@ type Props = {
   onImportDocument: (file: PickedDocumentFile) => void
   actionBusy: boolean
   importBusy: boolean
+  /** Aperçu local du dernier fichier choisi (avant / pendant envoi) */
+  importPreview?: PickedDocumentFile | null
+  /** Libellé optionnel (ex. numéro de document après upload) */
+  importPreviewHint?: string | null
+  onClearImportPreview?: () => void
 }
 
 /**
@@ -67,7 +75,10 @@ export function FolderAddStepForm({
   onSubmit,
   onImportDocument,
   actionBusy,
-  importBusy
+  importBusy,
+  importPreview = null,
+  importPreviewHint = null,
+  onClearImportPreview
 }: Props) {
   const theme = useTheme()
   const currentStepLabel =
@@ -84,6 +95,13 @@ export function FolderAddStepForm({
     data.scenario &&
     addStepDocRule.required &&
     docTypeOptions.length > 1
+
+  const showNoteField = shouldShowAddStepNoteField(stepType)
+  const showDocumentIdField = shouldShowAddStepDocumentIdField(
+    addStepDocRule,
+    Boolean(importPreview)
+  )
+  const showDetailsSection = showNoteField || showDocumentIdField
 
   return (
     <Surface
@@ -246,7 +264,7 @@ export function FolderAddStepForm({
               ))}
             </Menu>
           ) : null}
-          <View style={{ marginTop: 4 }}>
+          <View style={styles.fileUploadGroup}>
             <DocumentSourceField
               label="Choisir un fichier"
               placeholder="Touchez pour photo, galerie ou PDF"
@@ -254,6 +272,14 @@ export function FolderAddStepForm({
               disabled={importBusy || actionBusy}
               onPick={(f) => void onImportDocument(f)}
             />
+            {importPreview ? (
+              <PickedDocumentPreview
+                file={importPreview}
+                documentHint={importPreviewHint}
+                busy={importBusy}
+                onRemove={onClearImportPreview}
+              />
+            ) : null}
           </View>
         </>
       ) : null}
@@ -268,7 +294,7 @@ export function FolderAddStepForm({
           >
             Fichier (optionnel)
           </Text>
-          <HelperText type="info" padding="none" style={{ marginBottom: 4, marginTop: 0, fontSize: 12 }}>
+          <HelperText type="info" padding="none" style={{ marginBottom: 8, marginTop: 0, fontSize: 12 }}>
             Rattachez un document seulement si l’étape l’impose.
           </HelperText>
           {docTypeOptions.length > 1 ? (
@@ -281,6 +307,7 @@ export function FolderAddStepForm({
                   style={({ pressed }) => [
                     styles.selectRow,
                     {
+                      marginBottom: 4,
                       borderColor: theme.colors.outline,
                       backgroundColor: pressed
                         ? theme.colors.surfaceVariant
@@ -311,17 +338,27 @@ export function FolderAddStepForm({
               ))}
             </Menu>
           ) : null}
-          <DocumentSourceField
-            label="Choisir un fichier"
-            placeholder="Touchez pour photo, galerie ou PDF"
-            busy={importBusy}
-            disabled={importBusy || actionBusy}
-            onPick={(f) => void onImportDocument(f)}
-          />
+          <View style={styles.fileUploadGroup}>
+            <DocumentSourceField
+              label="Choisir un fichier"
+              placeholder="Touchez pour photo, galerie ou PDF"
+              busy={importBusy}
+              disabled={importBusy || actionBusy}
+              onPick={(f) => void onImportDocument(f)}
+            />
+            {importPreview ? (
+              <PickedDocumentPreview
+                file={importPreview}
+                documentHint={importPreviewHint}
+                busy={importBusy}
+                onRemove={onClearImportPreview}
+              />
+            ) : null}
+          </View>
         </>
       ) : null}
 
-      {data.scenario ? (
+      {data.scenario && showDetailsSection ? (
         <>
           <Text
             style={[
@@ -331,38 +368,44 @@ export function FolderAddStepForm({
           >
             Détails
           </Text>
-          <TextInput
-            label="Note (optionnel)"
-            value={stepValue}
-            onChangeText={setStepValue}
-            mode="outlined"
-            style={{ marginBottom: 2 }}
-            dense
-            multiline
-            numberOfLines={2}
-            placeholder="Réf. atelier, commentaire…"
-          />
-          <TextInput
-            label={
-              addStepDocRule.required
-                ? 'N° document'
-                : 'N° document (optionnel)'
-            }
-            value={stepDocId}
-            onChangeText={setStepDocId}
-            mode="outlined"
-            keyboardType="number-pad"
-            style={{ marginBottom: 0 }}
-            dense
-            placeholder="Souvent rempli par l’import"
-          />
-          {addStepDocRule.required ? (
-            <Text
-              variant="labelSmall"
-              style={{ color: theme.colors.onSurfaceVariant, marginTop: 4, lineHeight: 16 }}
-            >
-              Saisir le n° connu, ou laisser l’import l’inscrire.
-            </Text>
+          {showNoteField ? (
+            <TextInput
+              label="Note (optionnel)"
+              value={stepValue}
+              onChangeText={setStepValue}
+              mode="outlined"
+              style={{ marginBottom: 2 }}
+              dense
+              multiline
+              numberOfLines={2}
+              placeholder="Réf. atelier, commentaire…"
+            />
+          ) : null}
+          {showDocumentIdField ? (
+            <>
+              <TextInput
+                label={
+                  addStepDocRule.required
+                    ? 'N° document'
+                    : 'N° document (optionnel)'
+                }
+                value={stepDocId}
+                onChangeText={setStepDocId}
+                mode="outlined"
+                keyboardType="number-pad"
+                style={{ marginBottom: 0 }}
+                dense
+                placeholder="Souvent rempli par l’import"
+              />
+              {addStepDocRule.required ? (
+                <Text
+                  variant="labelSmall"
+                  style={{ color: theme.colors.onSurfaceVariant, marginTop: 4, lineHeight: 16 }}
+                >
+                  Saisir le n° connu, ou laisser l’import l’inscrire.
+                </Text>
+              ) : null}
+            </>
           ) : null}
         </>
       ) : null}
@@ -426,5 +469,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     marginBottom: 0
+  },
+  /** Espace net entre le(s) sélecteur(s) et l’import de fichier, et sous le libellé d’aide. */
+  fileUploadGroup: {
+    marginTop: 12
   }
 })
