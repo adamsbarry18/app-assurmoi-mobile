@@ -14,6 +14,7 @@ export function labelHistoryAction(action: string | null | undefined): string {
     'sinister.validated': 'Sinistre validé (gestionnaire)',
     'folder.created': 'Dossier créé',
     'folder.assigned': 'Chargé de suivi affecté',
+    'folder.scenario_set': 'Scénario dossier défini (réparable / perte totale)',
     'folder.closed': 'Dossier clôturé',
     'user.created': 'Utilisateur créé',
     'user.updated': 'Utilisateur modifié',

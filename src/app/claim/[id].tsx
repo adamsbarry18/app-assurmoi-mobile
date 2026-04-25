@@ -1,7 +1,18 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
-import { Pressable, ScrollView } from 'react-native'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { Pressable, ScrollView, View } from 'react-native'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useLocalSearchParams, useNavigation, useRouter, type Href } from 'expo-router'
-import { Button, Card, Text, useTheme, Menu } from 'react-native-paper'
+import {
+  Button,
+  Card,
+  Chip,
+  Menu,
+  SegmentedButtons,
+  Surface,
+  Divider,
+  Text,
+  useTheme
+} from 'react-native-paper'
 import { useAuth } from '@/auth'
 import {
   createFolder,
@@ -50,6 +61,7 @@ export default function ClaimDetailScreen() {
   const [title, setTitle] = useState('Sinistre')
   const [body, setBody] = useState<ClaimBody | null>(null)
   const [pieceBusy, setPieceBusy] = useState<'cni' | 'grise' | 'att' | null>(null)
+  const [mainTab, setMainTab] = useState<'apercu' | 'pieces' | 'gestion'>('apercu')
 
   const id = Number.parseInt(String(rawId), 10)
 
@@ -173,18 +185,24 @@ export default function ClaimDetailScreen() {
     }
   }, [body?.vehicle_plate])
 
-  if (!user) return null
-
-  const showValidate = canValidateClaim(user.role) && body && !body.is_validated_by_manager
-
-  const showDepotPieces = Boolean(
-    body &&
-    !body.is_validated_by_manager &&
-    (canCreateClaim(user.role) || canDeclareOwnClaim(user.role))
+  const showValidate = Boolean(
+    user && canValidateClaim(user.role) && body && !body.is_validated_by_manager
   )
 
-  const showCreateFolder =
-    body && canCreateFolderRecord(user.role) && !body.folder && body.is_validated_by_manager
+  const showDepotPieces = Boolean(
+    user &&
+      body &&
+      !body.is_validated_by_manager &&
+      (canCreateClaim(user.role) || canDeclareOwnClaim(user.role))
+  )
+
+  const showCreateFolder = Boolean(
+    user &&
+      body &&
+      canCreateFolderRecord(user.role) &&
+      !body.folder &&
+      body.is_validated_by_manager
+  )
 
   const scenarioLabel =
     folderScenario === 'none'
@@ -192,6 +210,45 @@ export default function ClaimDetailScreen() {
       : folderScenario === 'REPAIRABLE'
         ? 'Véhicule réparable'
         : 'Perte totale'
+
+  const showPiecesTab = Boolean(
+    body &&
+      (showDepotPieces ||
+        body.cni_driver != null ||
+        body.vehicle_registration_doc_id != null ||
+        body.insurance_certificate_id != null)
+  )
+  const showGestionTab = Boolean(showValidate || showCreateFolder)
+
+  const segmentButtons = useMemo(() => {
+    const a = { value: 'apercu' as const, label: 'Aperçu', icon: 'view-dashboard-outline' as const }
+    if (!showPiecesTab && !showGestionTab) {
+      return [] as { value: string; label: string; icon: (typeof a)['icon'] }[]
+    }
+    if (showPiecesTab && !showGestionTab) {
+      return [
+        a,
+        { value: 'pieces' as const, label: 'Pièces', icon: 'file-document-multiple-outline' as const }
+      ]
+    }
+    if (!showPiecesTab && showGestionTab) {
+      return [a, { value: 'gestion' as const, label: 'Gestion', icon: 'cog-outline' as const }]
+    }
+    return [
+      a,
+      { value: 'pieces' as const, label: 'Pièces', icon: 'file-document-multiple-outline' as const },
+      { value: 'gestion' as const, label: 'Gestion', icon: 'cog-outline' as const }
+    ]
+  }, [showPiecesTab, showGestionTab])
+
+  useEffect(() => {
+    if (mainTab === 'pieces' && !showPiecesTab) setMainTab('apercu')
+    if (mainTab === 'gestion' && !showGestionTab) setMainTab('apercu')
+  }, [mainTab, showPiecesTab, showGestionTab])
+
+  if (!user) return null
+
+  const showApercu = mainTab === 'apercu' || segmentButtons.length === 0
 
   return (
     <ScrollView
@@ -203,70 +260,258 @@ export default function ClaimDetailScreen() {
 
       {body ? (
         <>
-          <Card style={{ marginBottom: 12 }} mode="outlined">
-            <Card.Content>
-              <Text
-                variant="titleSmall"
-                style={{ color: theme.colors.onSurfaceVariant, marginBottom: 6 }}
+          {segmentButtons.length > 0 ? (
+            <SegmentedButtons
+              value={mainTab}
+              onValueChange={(v) => setMainTab(v as 'apercu' | 'pieces' | 'gestion')}
+              buttons={segmentButtons}
+              style={{ marginBottom: 8 }}
+            />
+          ) : null}
+
+          {showApercu ? (
+            <>
+              <Surface
+                style={{
+                  borderRadius: 20,
+                  padding: 18,
+                  marginBottom: 16,
+                  backgroundColor: theme.colors.surfaceVariant
+                }}
+                elevation={0}
               >
-                Statut
-              </Text>
-              <Text variant="bodyLarge" style={{ fontWeight: '600', color: BrandColors.primary }}>
-                {labelSinisterStatus(body.status)}
-              </Text>
-            </Card.Content>
-          </Card>
-          {body.creator ? (
-            <Card style={{ marginBottom: 12 }} mode="outlined">
-              <Card.Content>
                 <Text
-                  variant="titleSmall"
-                  style={{ color: theme.colors.onSurfaceVariant, marginBottom: 4 }}
+                  variant="headlineSmall"
+                  style={{ fontWeight: '700', color: BrandColors.primary }}
                 >
-                  Déclaration enregistrée par
+                  {body.vehicle_plate}
                 </Text>
-                <Text variant="bodyMedium">{displayUser(body.creator)}</Text>
-                <Text
-                  variant="labelSmall"
-                  style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    marginTop: 12,
+                    alignItems: 'center'
+                  }}
                 >
-                  {roleLabel(body.creator.role)}
-                </Text>
-              </Card.Content>
-            </Card>
-          ) : null}
-          {body.insuredUser ? (
-            <Card style={{ marginBottom: 12 }} mode="outlined">
-              <Card.Content>
-                <Text
-                  variant="titleSmall"
-                  style={{ color: theme.colors.onSurfaceVariant, marginBottom: 4 }}
+                  <Chip icon="shield-check" compact mode="flat">
+                    {labelSinisterStatus(body.status)}
+                  </Chip>
+                </View>
+                {canViewEntityHistory(user.role) ? (
+                  <View style={{ marginTop: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    <Button
+                      mode="outlined"
+                      compact
+                      icon="history"
+                      onPress={() =>
+                        router.push(`/history?entity_type=sinister&entity_id=${body.id}` as Href)
+                      }
+                    >
+                      Historique
+                    </Button>
+                  </View>
+                ) : null}
+              </Surface>
+
+              {body.creator || body.insuredUser || body.folder?.assignedOfficer ? (
+                <Surface
+                  style={{
+                    borderRadius: 16,
+                    padding: 4,
+                    marginBottom: 12,
+                    backgroundColor: theme.colors.surface
+                  }}
+                  elevation={0}
                 >
-                  Compte assuré rattaché
+                  {body.creator ? (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        paddingHorizontal: 12,
+                        paddingVertical: 12,
+                        gap: 12
+                      }}
+                    >
+                      <MaterialCommunityIcons
+                        name="account-circle-outline"
+                        size={24}
+                        color={BrandColors.primary}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                          Déclaration
+                        </Text>
+                        <Text variant="bodyMedium" style={{ marginTop: 2 }}>
+                          {displayUser(body.creator)}
+                        </Text>
+                        <Text variant="labelSmall" style={{ color: theme.colors.outline, marginTop: 2 }}>
+                          {roleLabel(body.creator.role)}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
+                  {body.creator && (body.insuredUser || body.folder?.assignedOfficer) ? (
+                    <Divider style={{ marginHorizontal: 8 }} />
+                  ) : null}
+                  {body.insuredUser ? (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        paddingHorizontal: 12,
+                        paddingVertical: 12,
+                        gap: 12
+                      }}
+                    >
+                      <MaterialCommunityIcons
+                        name="shield-account-outline"
+                        size={24}
+                        color={BrandColors.primary}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                          Assuré
+                        </Text>
+                        <Text variant="bodyMedium" style={{ marginTop: 2 }}>
+                          {displayUser(body.insuredUser)}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
+                  {body.insuredUser && body.folder?.assignedOfficer ? <Divider style={{ marginHorizontal: 8 }} /> : null}
+                  {body.folder?.assignedOfficer ? (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        paddingHorizontal: 12,
+                        paddingVertical: 12,
+                        gap: 12
+                      }}
+                    >
+                      <MaterialCommunityIcons
+                        name="account-supervisor-outline"
+                        size={24}
+                        color={BrandColors.primary}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                          Chargé de suivi (dossier)
+                        </Text>
+                        <Text variant="bodyMedium" style={{ marginTop: 2 }}>
+                          {displayUser(body.folder.assignedOfficer)}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
+                </Surface>
+              ) : null}
+
+              <Surface
+                style={{
+                  borderRadius: 16,
+                  padding: 16,
+                  marginBottom: 12,
+                  backgroundColor: theme.colors.elevation?.level1 ?? theme.colors.surface
+                }}
+                elevation={0}
+              >
+                <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant, marginBottom: 12 }}>
+                  Détail du sinistre
                 </Text>
-                <Text variant="bodyMedium">{displayUser(body.insuredUser)}</Text>
-              </Card.Content>
-            </Card>
+                <View style={{ flexDirection: 'row', marginBottom: 12, gap: 12, alignItems: 'flex-start' }}>
+                  <MaterialCommunityIcons
+                    name="calendar-clock"
+                    size={22}
+                    color={theme.colors.primary}
+                    style={{ marginTop: 2 }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                      Date du sinistre
+                    </Text>
+                    <Text variant="bodyMedium" style={{ marginTop: 2 }}>
+                      {formatDate(body.incident_datetime)}
+                    </Text>
+                  </View>
+                </View>
+                {body.call_datetime ? (
+                  <View style={{ flexDirection: 'row', marginBottom: 12, gap: 12, alignItems: 'flex-start' }}>
+                    <MaterialCommunityIcons
+                      name="phone-outline"
+                      size={22}
+                      color={theme.colors.primary}
+                      style={{ marginTop: 2 }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                        Appel
+                      </Text>
+                      <Text variant="bodyMedium" style={{ marginTop: 2 }}>
+                        {formatDate(body.call_datetime)}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
+                {(body.driver_first_name || body.driver_last_name) && (
+                  <View style={{ flexDirection: 'row', marginBottom: 12, gap: 12, alignItems: 'flex-start' }}>
+                    <MaterialCommunityIcons
+                      name="account-outline"
+                      size={22}
+                      color={theme.colors.primary}
+                      style={{ marginTop: 2 }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                        Conducteur
+                      </Text>
+                      <Text variant="bodyMedium" style={{ marginTop: 2 }}>
+                        {[body.driver_first_name, body.driver_last_name].filter(Boolean).join(' ')}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                {body.description ? (
+                  <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+                    <MaterialCommunityIcons
+                      name="text"
+                      size={22}
+                      color={theme.colors.primary}
+                      style={{ marginTop: 2 }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                        Contexte
+                      </Text>
+                      <Text variant="bodyMedium" style={{ marginTop: 2, lineHeight: 22 }}>
+                        {body.description}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
+              </Surface>
+
+              {body.folder ? (
+                <Button
+                  mode="contained"
+                  buttonColor={BrandColors.primary}
+                  onPress={() => router.push(`/folder/${body.folder!.id}` as Href)}
+                  style={{ marginTop: 4, marginBottom: 8, borderRadius: 10 }}
+                >
+                  Ouvrir le dossier{' '}
+                  {body.folder.folder_reference
+                    ? `(${body.folder.folder_reference})`
+                    : `#${body.folder.id}`}
+                </Button>
+              ) : null}
+            </>
           ) : null}
-          {canViewEntityHistory(user.role) ? (
-            <Button
-              mode="outlined"
-              onPress={() =>
-                router.push(`/history?entity_type=sinister&entity_id=${body.id}` as Href)
-              }
-              style={{ marginBottom: 12 }}
-            >
-              Historique du sinistre
-            </Button>
-          ) : null}
-          {showDepotPieces ||
-          body.cni_driver != null ||
-          body.vehicle_registration_doc_id != null ||
-          body.insurance_certificate_id != null ? (
+
+          {mainTab === 'pieces' && showPiecesTab ? (
             <Card style={{ marginBottom: 12 }} mode="outlined">
               <Card.Content>
                 <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 8 }}>
-                  Pièces obligatoires (CNI, carte grise, attestation)
+                  CNI, carte grise, attestation
                 </Text>
                 {showDepotPieces ? (
                   <>
@@ -280,15 +525,11 @@ export default function ClaimDetailScreen() {
                     >
                       {canDeclareOwnClaim(user.role) ? (
                         <>
-                          Vous pouvez déposer ici CNI, carte grise et attestation ; elles seront
-                          vérifiées par un gestionnaire avant validation du sinistre. Un{' '}
-                          <Text style={{ fontWeight: '600' }}>RIB</Text> complémentaire peut aussi
-                          être envoyé depuis l’onglet{' '}
-                          <Text style={{ fontWeight: '600' }}>Dossier</Text> (ex. perte totale) ou
-                          ci-dessous si besoin.
+                          Trois envois distincts, puis validation par un gestionnaire. RIB
+                          éventuel : onglet Dossier (perte totale) ou ici.
                         </>
                       ) : (
-                        <>Importez chaque type (dépôt), le sinistre est mis à jour.</>
+                        <>Import par type, le sinistre est mis à jour automatiquement.</>
                       )}
                     </Text>
                     <DocumentSourceField
@@ -368,152 +609,102 @@ export default function ClaimDetailScreen() {
               </Card.Content>
             </Card>
           ) : null}
-          {body.folder?.assignedOfficer ? (
-            <Card style={{ marginBottom: 12 }} mode="outlined">
-              <Card.Content>
-                <Text
-                  variant="titleSmall"
-                  style={{ color: theme.colors.onSurfaceVariant, marginBottom: 4 }}
-                >
-                  Chargé de suivi (dossier)
-                </Text>
-                <Text variant="bodyMedium">{displayUser(body.folder.assignedOfficer)}</Text>
-              </Card.Content>
-            </Card>
-          ) : null}
-          <Card style={{ marginBottom: 12 }} mode="outlined">
-            <Card.Content>
-              <Text variant="bodyMedium" style={{ marginBottom: 8 }}>
-                <Text style={{ color: theme.colors.onSurfaceVariant }}>Date du sinistre : </Text>
-                {formatDate(body.incident_datetime)}
-              </Text>
-              {body.call_datetime ? (
-                <Text variant="bodyMedium" style={{ marginBottom: 8 }}>
-                  <Text style={{ color: theme.colors.onSurfaceVariant }}>Appel : </Text>
-                  {formatDate(body.call_datetime)}
-                </Text>
-              ) : null}
-              {(body.driver_first_name || body.driver_last_name) && (
-                <Text variant="bodyMedium" style={{ marginBottom: 8 }}>
-                  <Text style={{ color: theme.colors.onSurfaceVariant }}>Conducteur : </Text>
-                  {[body.driver_first_name, body.driver_last_name].filter(Boolean).join(' ')}
-                </Text>
-              )}
-              {body.description ? (
-                <Text variant="bodyMedium" style={{ marginTop: 4 }}>
-                  <Text style={{ color: theme.colors.onSurfaceVariant }}>Contexte : </Text>
-                  {body.description}
-                </Text>
-              ) : null}
-            </Card.Content>
-          </Card>
-          {showValidate ? (
-            <Button
-              mode="contained"
-              onPress={onValidate}
-              loading={validating}
-              disabled={validating}
-              buttonColor={BrandColors.primary}
-              style={{ marginBottom: 12, borderRadius: 10 }}
-            >
-              Valider le sinistre (gestionnaire)
-            </Button>
-          ) : null}
-          {showCreateFolder ? (
-            <Card style={{ marginBottom: 12 }} mode="outlined">
-              <Card.Content>
-                <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 8 }}>
-                  Ouvrir un dossier de prise en charge
-                </Text>
-                <Text
-                  variant="bodySmall"
-                  style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
-                >
-                  Le sinistre est validé. Pour{' '}
-                  <Text style={{ fontWeight: '600' }}>Créer le dossier</Text> sans forcer. Les{' '}
-                  <Text style={{ fontWeight: '600' }}>trois</Text> pièces (CNI, carte grise,
-                  attestation) sont obligatoire <Text style={{ fontWeight: '600' }}>et</Text>{' '}
-                  chacune doit être validée.
-                </Text>
-                <Text
-                  variant="labelSmall"
-                  style={{ color: theme.colors.onSurfaceVariant, marginBottom: 10 }}
-                >
-                  Si les pièces ne sont pas encore toutes validées : utilisez{' '}
-                  <Text style={{ fontWeight: '600' }}>Forcer la création</Text> (gestionnaire /
-                  admin) pour ouvrir le dossier quand même.
-                </Text>
-                <Menu
-                  visible={scenarioOpen}
-                  onDismiss={() => setScenarioOpen(false)}
-                  anchor={
-                    <Button
-                      mode="outlined"
-                      onPress={() => setScenarioOpen(true)}
-                      style={{ marginBottom: 8 }}
-                    >
-                      {scenarioLabel}
-                    </Button>
-                  }
-                >
-                  <Menu.Item
-                    onPress={() => {
-                      setFolderScenario('none')
-                      setScenarioOpen(false)
-                    }}
-                    title="Non défini (API par défaut)"
-                  />
-                  <Menu.Item
-                    onPress={() => {
-                      setFolderScenario('REPAIRABLE')
-                      setScenarioOpen(false)
-                    }}
-                    title="Véhicule réparable"
-                  />
-                  <Menu.Item
-                    onPress={() => {
-                      setFolderScenario('TOTAL_LOSS')
-                      setScenarioOpen(false)
-                    }}
-                    title="Perte totale"
-                  />
-                </Menu>
+
+          {mainTab === 'gestion' && showGestionTab ? (
+            <>
+              {showValidate ? (
                 <Button
                   mode="contained"
+                  onPress={onValidate}
+                  loading={validating}
+                  disabled={validating}
                   buttonColor={BrandColors.primary}
-                  onPress={() => onCreateFolder(false)}
-                  loading={creatingFolder}
-                  disabled={creatingFolder}
-                  style={{ borderRadius: 10, marginBottom: 8 }}
+                  style={{ marginBottom: 12, borderRadius: 10 }}
                 >
-                  Créer le dossier
+                  Valider le sinistre (gestionnaire)
                 </Button>
-                {canForceCreateFolder(user.role) ? (
-                  <Button
-                    mode="outlined"
-                    onPress={() => onCreateFolder(true)}
-                    loading={creatingFolder}
-                    disabled={creatingFolder}
-                    style={{ borderRadius: 10 }}
-                  >
-                    Forcer la création (pièces incomplètes)
-                  </Button>
-                ) : null}
-              </Card.Content>
-            </Card>
-          ) : null}
-          {body.folder ? (
-            <Button
-              mode="contained"
-              buttonColor={BrandColors.primary}
-              onPress={() => router.push(`/folder/${body.folder!.id}` as Href)}
-              style={{ marginTop: 8, borderRadius: 10 }}
-            >
-              Ouvrir le dossier{' '}
-              {body.folder.folder_reference
-                ? `(${body.folder.folder_reference})`
-                : `#${body.folder.id}`}
-            </Button>
+              ) : null}
+              {showCreateFolder ? (
+                <Card style={{ marginBottom: 12 }} mode="outlined">
+                  <Card.Content>
+                    <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 8 }}>
+                      Ouvrir un dossier de prise en charge
+                    </Text>
+                    <Text
+                      variant="bodySmall"
+                      style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8 }}
+                    >
+                      Sinistre validé : les trois pièces (CNI, carte grise, attestation) doivent
+                      être <Text style={{ fontWeight: '600' }}>validées</Text> chacune avant{' '}
+                      <Text style={{ fontWeight: '600' }}>Créer le dossier</Text>.
+                    </Text>
+                    <Text
+                      variant="labelSmall"
+                      style={{ color: theme.colors.onSurfaceVariant, marginBottom: 10 }}
+                    >
+                      Pièces incomplètes : <Text style={{ fontWeight: '600' }}>Forcer la création</Text>{' '}
+                      (gestionnaire / admin) si autorisé.
+                    </Text>
+                    <Menu
+                      visible={scenarioOpen}
+                      onDismiss={() => setScenarioOpen(false)}
+                      anchor={
+                        <Button
+                          mode="outlined"
+                          onPress={() => setScenarioOpen(true)}
+                          style={{ marginBottom: 8 }}
+                        >
+                          {scenarioLabel}
+                        </Button>
+                      }
+                    >
+                      <Menu.Item
+                        onPress={() => {
+                          setFolderScenario('none')
+                          setScenarioOpen(false)
+                        }}
+                        title="Non défini (API par défaut)"
+                      />
+                      <Menu.Item
+                        onPress={() => {
+                          setFolderScenario('REPAIRABLE')
+                          setScenarioOpen(false)
+                        }}
+                        title="Véhicule réparable"
+                      />
+                      <Menu.Item
+                        onPress={() => {
+                          setFolderScenario('TOTAL_LOSS')
+                          setScenarioOpen(false)
+                        }}
+                        title="Perte totale"
+                      />
+                    </Menu>
+                    <Button
+                      mode="contained"
+                      buttonColor={BrandColors.primary}
+                      onPress={() => onCreateFolder(false)}
+                      loading={creatingFolder}
+                      disabled={creatingFolder}
+                      style={{ borderRadius: 10, marginBottom: 8 }}
+                    >
+                      Créer le dossier
+                    </Button>
+                    {canForceCreateFolder(user.role) ? (
+                      <Button
+                        mode="outlined"
+                        onPress={() => onCreateFolder(true)}
+                        loading={creatingFolder}
+                        disabled={creatingFolder}
+                        style={{ borderRadius: 10 }}
+                      >
+                        Forcer la création (pièces incomplètes)
+                      </Button>
+                    ) : null}
+                  </Card.Content>
+                </Card>
+              ) : null}
+            </>
           ) : null}
         </>
       ) : !error ? (
