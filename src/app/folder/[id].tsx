@@ -5,12 +5,10 @@ import {
   Button,
   Card,
   Chip,
-  HelperText,
   Menu,
   SegmentedButtons,
   Surface,
   Text,
-  TextInput,
   useTheme
 } from 'react-native-paper'
 import { useAuth } from '@/auth'
@@ -46,6 +44,7 @@ import {
 import type { AuthUser } from '@/auth/types'
 import { BrandColors } from '@/constants/brand'
 import { DocumentSourceField } from '@/components/common/DocumentSourceField'
+import { FolderAddStepForm } from '@/components/folders/FolderAddStepForm'
 import { FolderStepTimeline } from '@/components/folders/FolderStepTimeline'
 import type { PickedDocumentFile } from '@/utils/pickDocument'
 import { buildDocumentMultipartForm } from '@/utils/documentFormData'
@@ -402,9 +401,6 @@ export default function FolderDetailScreen() {
 
   const addStepTypeOptions = folderStepTypeOptionsForScenario(data?.scenario)
   const addStepDocRule = folderStepLinkedDocumentRule(stepType, data?.scenario)
-  const addStepDocumentIdLabel = addStepDocRule.required
-    ? `ID document (obligatoire) — ${labelLinkedDocumentTypeForStep(addStepDocRule.apiDocumentType)}`
-    : 'ID document (optionnel)'
 
   const sinisterId = data?.sinister?.id ?? null
 
@@ -418,12 +414,22 @@ export default function FolderDetailScreen() {
 
       {data ? (
         <>
-          <SegmentedButtons
-            value={mainTab}
-            onValueChange={(v) => setMainTab(v as 'apercu' | 'mid' | 'parcours')}
-            buttons={segmentButtons}
-            style={{ marginBottom: 8 }}
-          />
+          <View
+            style={{
+              borderRadius: 18,
+              backgroundColor: theme.colors.surfaceVariant,
+              padding: 4,
+              marginBottom: 12
+            }}
+          >
+            <SegmentedButtons
+              value={mainTab}
+              onValueChange={(v) => setMainTab(v as 'apercu' | 'mid' | 'parcours')}
+              buttons={segmentButtons}
+              style={{ backgroundColor: 'transparent' }}
+              density="medium"
+            />
+          </View>
 
           {mainTab === 'apercu' ? (
             <>
@@ -676,127 +682,28 @@ export default function FolderDetailScreen() {
           ) : null}
 
           {user && canPostFolderStep(user.role, data, user.id) && user.role !== 'INSURED' ? (
-            <Card style={{ marginBottom: 16 }} mode="outlined">
-              <Card.Content>
-                <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 8 }}>
-                  Ajouter une étape
-                </Text>
-                {!data.scenario ? (
-                  <Text
-                    variant="bodySmall"
-                    style={{ color: theme.colors.error, marginBottom: 8, lineHeight: 20 }}
-                  >
-                    Définissez d’abord le scénario du dossier (Aperçu), puis revenez ici.
-                  </Text>
-                ) : null}
-                <HelperText type="info" padding="none" style={{ marginBottom: 6 }}>
-                  {addStepDocRule.required
-                    ? 'Document requis (type indiqué). Import ci-dessous → id renseigné auto.'
-                    : 'Id document optionnel pour ce type. Import seulement si besoin d’un fichier.'}
-                </HelperText>
-                {addStepDocRule.required ? (
-                  <Text
-                    variant="labelLarge"
-                    style={{ color: theme.colors.primary, marginBottom: 8, lineHeight: 20 }}
-                  >
-                    {labelLinkedDocumentTypeForStep(addStepDocRule.apiDocumentType)}
-                  </Text>
-                ) : null}
-                {data.scenario ? (
-                  <>
-                    <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 4 }}>
-                      Importer un document
-                    </Text>
-                    <Menu
-                      visible={importTypeMenu}
-                      onDismiss={() => setImportTypeMenu(false)}
-                      anchor={
-                        <Button
-                          mode="outlined"
-                          onPress={() => setImportTypeMenu(true)}
-                          style={{ marginBottom: 8 }}
-                        >
-                          {docTypeOptions.find((o) => o.value === importDocType)?.label ??
-                            importDocType}
-                        </Button>
-                      }
-                    >
-                      {docTypeOptions.map((o) => (
-                        <Menu.Item
-                          key={o.value}
-                          onPress={() => {
-                            setImportDocType(o.value)
-                            setImportTypeMenu(false)
-                          }}
-                          title={o.label}
-                        />
-                      ))}
-                    </Menu>
-                    <DocumentSourceField
-                      label="Importer le document (étape)"
-                      description={`Type d’enregistrement : ${
-                        docTypeOptions.find((o) => o.value === importDocType)?.label ?? importDocType
-                      }`}
-                      busy={stepImportBusy}
-                      disabled={stepImportBusy || actionBusy}
-                      onPick={(f) => void onImportStepDocument(f)}
-                    />
-                  </>
-                ) : null}
-                <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 6 }}>
-                  Type d’étape
-                </Text>
-                <Menu
-                  visible={stepTypeMenu}
-                  onDismiss={() => setStepTypeMenu(false)}
-                  anchor={
-                    <Button
-                      mode="outlined"
-                      onPress={() => setStepTypeMenu(true)}
-                      style={{ marginBottom: 8 }}
-                    >
-                      {addStepTypeOptions.find((x) => x.value === stepType)?.label ?? stepType}
-                    </Button>
-                  }
-                >
-                  {addStepTypeOptions.map((o) => (
-                    <Menu.Item
-                      key={o.value}
-                      onPress={() => {
-                        setStepType(o.value)
-                        setStepTypeMenu(false)
-                      }}
-                      title={o.label}
-                    />
-                  ))}
-                </Menu>
-                <TextInput
-                  label="Valeur / note (optionnel)"
-                  value={stepValue}
-                  onChangeText={setStepValue}
-                  mode="outlined"
-                  style={{ marginBottom: 8 }}
-                  multiline
-                />
-                <TextInput
-                  label={addStepDocumentIdLabel}
-                  value={stepDocId}
-                  onChangeText={setStepDocId}
-                  mode="outlined"
-                  keyboardType="number-pad"
-                  style={{ marginBottom: 8 }}
-                />
-                <Button
-                  mode="contained"
-                  buttonColor={BrandColors.primary}
-                  onPress={onAddStep}
-                  loading={actionBusy}
-                  disabled={actionBusy || !data.scenario}
-                >
-                  Enregistrer l’étape
-                </Button>
-              </Card.Content>
-            </Card>
+            <FolderAddStepForm
+              data={data}
+              stepType={stepType}
+              setStepType={setStepType}
+              stepValue={stepValue}
+              setStepValue={setStepValue}
+              stepDocId={stepDocId}
+              setStepDocId={setStepDocId}
+              importDocType={importDocType}
+              setImportDocType={setImportDocType}
+              stepTypeMenu={stepTypeMenu}
+              setStepTypeMenu={setStepTypeMenu}
+              importTypeMenu={importTypeMenu}
+              setImportTypeMenu={setImportTypeMenu}
+              addStepTypeOptions={addStepTypeOptions}
+              addStepDocRule={addStepDocRule}
+              docTypeOptions={docTypeOptions}
+              onSubmit={onAddStep}
+              onImportDocument={onImportStepDocument}
+              actionBusy={actionBusy}
+              importBusy={stepImportBusy}
+            />
           ) : null}
             </>
           ) : null}
