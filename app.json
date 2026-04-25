@@ -28,6 +28,13 @@
     "plugins": [
       "expo-router",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "L’app a besoin d’accéder à vos photos pour joindre des pièces (carte grise, CNI, etc.).",
+          "cameraPermission": "L’app a besoin d’accéder à la caméra pour photographier une pièce (carte grise, CNI, etc.)."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",

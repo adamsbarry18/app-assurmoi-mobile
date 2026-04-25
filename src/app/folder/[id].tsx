@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { Alert, Pressable, ScrollView, View } from 'react-native'
+import { Alert, ScrollView, View } from 'react-native'
 import { useLocalSearchParams, useNavigation, useRouter, type Href } from 'expo-router'
-import { Button, Card, Divider, Menu, Text, TextInput, useTheme } from 'react-native-paper'
+import {
+  Button,
+  Card,
+  Chip,
+  HelperText,
+  Menu,
+  SegmentedButtons,
+  Surface,
+  Text,
+  TextInput,
+  useTheme
+} from 'react-native-paper'
 import { useAuth } from '@/auth'
 import {
   ApiRequestError,
@@ -20,9 +31,7 @@ import {
   FOLDER_STEP_TYPE_OPTIONS,
   folderStepLinkedDocumentRule,
   folderStepTypeOptionsForScenario,
-  formatDate,
   labelFolderStatus,
-  labelFolderStepType,
   labelLinkedDocumentTypeForStep,
   labelScenario
 } from '@/utils/claimFormat'
@@ -36,7 +45,9 @@ import {
 } from '@/utils/roleAccess'
 import type { AuthUser } from '@/auth/types'
 import { BrandColors } from '@/constants/brand'
-import { pickDocumentFile } from '@/utils/pickDocument'
+import { DocumentSourceField } from '@/components/common/DocumentSourceField'
+import { FolderStepTimeline } from '@/components/folders/FolderStepTimeline'
+import type { PickedDocumentFile } from '@/utils/pickDocument'
 import { buildDocumentMultipartForm } from '@/utils/documentFormData'
 
 type FolderBody = FolderDetailResponse['data']
@@ -79,6 +90,7 @@ export default function FolderDetailScreen() {
   const [insuredExtraType, setInsuredExtraType] = useState('RIB')
   const [insuredExtraMenu, setInsuredExtraMenu] = useState(false)
   const [insuredExtraBusy, setInsuredExtraBusy] = useState(false)
+  const [mainTab, setMainTab] = useState<'apercu' | 'mid' | 'parcours'>('apercu')
 
   const id = Number.parseInt(String(rawId), 10)
 
@@ -137,6 +149,39 @@ export default function FolderDetailScreen() {
       setImportDocType(rule.apiDocumentType)
     }
   }, [data?.scenario, stepType])
+
+  const showMidTab = useMemo(() => {
+    if (!data || !user) return false
+    if (user.role === 'INSURED' && !data.is_closed) return true
+    return canPostFolderStep(user.role, data, user.id) && user.role !== 'INSURED'
+  }, [data, user])
+
+  useEffect(() => {
+    if (mainTab === 'mid' && !showMidTab) setMainTab('apercu')
+  }, [mainTab, showMidTab])
+
+  const segmentButtons = useMemo(() => {
+    const a = {
+      value: 'apercu' as const,
+      label: 'Aperçu',
+      icon: 'view-dashboard-outline' as const
+    }
+    const p = {
+      value: 'parcours' as const,
+      label: 'Parcours',
+      icon: 'timeline-text-outline' as const
+    }
+    if (!showMidTab) return [a, p]
+    const m = {
+      value: 'mid' as const,
+      label: user?.role === 'INSURED' ? 'Pièces' : 'Traitement',
+      icon:
+        user?.role === 'INSURED'
+          ? ('file-document-outline' as const)
+          : ('progress-wrench' as const)
+    }
+    return [a, m, p]
+  }, [showMidTab, user?.role])
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -256,44 +301,38 @@ export default function FolderDetailScreen() {
     }
   }
 
-  const onImportWithSelectedType = useCallback(async () => {
-    if (!data?.scenario) return
-    setStepImportBusy(true)
-    setError(null)
-    setInfo(null)
-    try {
-      const picked = await pickDocumentFile()
-      if (!picked) {
-        return
+  const onImportStepDocument = useCallback(
+    async (picked: PickedDocumentFile) => {
+      if (!data?.scenario) return
+      setStepImportBusy(true)
+      setError(null)
+      setInfo(null)
+      try {
+        const up = await uploadDocument(
+          buildDocumentMultipartForm(importDocType, {
+            uri: picked.uri,
+            name: picked.name,
+            mime: picked.mime
+          })
+        )
+        setStepDocId(String(up.data.id))
+        setInfo(
+          `Document n°${up.data.id} importé (${importDocType}). Vérifiez la validation gestionnaire si requis, puis enregistrez l’étape.`
+        )
+      } catch (e) {
+        setError(e instanceof ApiRequestError ? e.message : 'Import du document impossible.')
+      } finally {
+        setStepImportBusy(false)
       }
-      const up = await uploadDocument(
-        buildDocumentMultipartForm(importDocType, {
-          uri: picked.uri,
-          name: picked.name,
-          mime: picked.mime
-        })
-      )
-      setStepDocId(String(up.data.id))
-      setInfo(
-        `Document n°${up.data.id} importé (${importDocType}). Vérifiez la validation gestionnaire si requis, puis enregistrez l’étape.`
-      )
-    } catch (e) {
-      setError(e instanceof ApiRequestError ? e.message : 'Import du document impossible.')
-    } finally {
-      setStepImportBusy(false)
-    }
-  }, [data?.scenario, importDocType])
+    },
+    [data?.scenario, importDocType]
+  )
 
-  const onDepositRib = async () => {
+  const onDepositRib = async (picked: PickedDocumentFile) => {
     setRibError(null)
     if (!data || data.is_closed) return
     setUploading(true)
     try {
-      const picked = await pickDocumentFile()
-      if (!picked) {
-        setUploading(false)
-        return
-      }
       const up = await uploadDocument(
         buildDocumentMultipartForm('RIB', {
           uri: picked.uri,
@@ -316,33 +355,32 @@ export default function FolderDetailScreen() {
     }
   }
 
-  const onInsuredSupplementUpload = useCallback(async () => {
-    if (!data || data.is_closed) return
-    setInsuredExtraBusy(true)
-    setError(null)
-    setInfo(null)
-    try {
-      const picked = await pickDocumentFile()
-      if (!picked) {
-        return
+  const onInsuredSupplementUpload = useCallback(
+    async (picked: PickedDocumentFile) => {
+      if (!data || data.is_closed) return
+      setInsuredExtraBusy(true)
+      setError(null)
+      setInfo(null)
+      try {
+        const up = await uploadDocument(
+          buildDocumentMultipartForm(insuredExtraType, {
+            uri: picked.uri,
+            name: picked.name,
+            mime: picked.mime
+          })
+        )
+        setInfo(
+          `Document n°${up.data.id} reçu (${insuredExtraType}). Un gestionnaire pourra le valider.`
+        )
+        await load()
+      } catch (e) {
+        setError(e instanceof ApiRequestError ? e.message : 'Envoi impossible.')
+      } finally {
+        setInsuredExtraBusy(false)
       }
-      const up = await uploadDocument(
-        buildDocumentMultipartForm(insuredExtraType, {
-          uri: picked.uri,
-          name: picked.name,
-          mime: picked.mime
-        })
-      )
-      setInfo(
-        `Document n°${up.data.id} reçu (${insuredExtraType}). Un gestionnaire pourra le valider.`
-      )
-      await load()
-    } catch (e) {
-      setError(e instanceof ApiRequestError ? e.message : 'Envoi impossible.')
-    } finally {
-      setInsuredExtraBusy(false)
-    }
-  }, [data, insuredExtraType, load])
+    },
+    [data, insuredExtraType, load]
+  )
 
   const docTypeOptions = useMemo(() => apiDocumentUploadTypesForRole(user?.role), [user?.role])
 
@@ -380,37 +418,91 @@ export default function FolderDetailScreen() {
 
       {data ? (
         <>
-          {sinisterId != null ? (
-            <Button
-              mode="outlined"
-              onPress={() => router.push(`/claim/${sinisterId}` as Href)}
-              style={{ marginBottom: 12, borderColor: theme.colors.outline }}
-            >
-              Voir le sinistre
-            </Button>
-          ) : null}
-          {canViewEntityHistory(user.role) && data ? (
-            <Button
-              mode="outlined"
-              onPress={() =>
-                router.push(`/history?entity_type=folder&entity_id=${data.id}` as Href)
-              }
-              style={{ marginBottom: 12, borderColor: theme.colors.outline }}
-            >
-              Historique du dossier
-            </Button>
-          ) : null}
+          <SegmentedButtons
+            value={mainTab}
+            onValueChange={(v) => setMainTab(v as 'apercu' | 'mid' | 'parcours')}
+            buttons={segmentButtons}
+            style={{ marginBottom: 8 }}
+          />
 
-          <Card style={{ marginBottom: 12 }} mode="outlined">
-            <Card.Content>
-              <Text variant="bodyLarge" style={{ fontWeight: '600', marginBottom: 6 }}>
-                {labelFolderStatus(data.status)}
-              </Text>
-              <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                {labelScenario(data.scenario)}
-              </Text>
-            </Card.Content>
-          </Card>
+          {mainTab === 'apercu' ? (
+            <>
+              <Surface
+                style={{
+                  borderRadius: 20,
+                  padding: 18,
+                  marginBottom: 16,
+                  backgroundColor: theme.colors.surfaceVariant
+                }}
+                elevation={0}
+              >
+                <Text
+                  variant="headlineSmall"
+                  style={{ fontWeight: '700', color: BrandColors.primary }}
+                >
+                  {data.folder_reference || `Dossier #${id}`}
+                </Text>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    marginTop: 12,
+                    alignItems: 'center'
+                  }}
+                >
+                  <Chip icon="information" compact mode="flat">
+                    {labelFolderStatus(data.status)}
+                  </Chip>
+                  <Chip icon="car" compact mode="flat">
+                    {labelScenario(data.scenario)}
+                  </Chip>
+                </View>
+                {data.assignedOfficer ? (
+                  <View style={{ marginTop: 14 }}>
+                    <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                      Chargé de suivi
+                    </Text>
+                    <Text variant="bodyMedium" style={{ marginTop: 2 }}>
+                      {displayUser(data.assignedOfficer)}
+                    </Text>
+                    <Text variant="labelSmall" style={{ color: theme.colors.outline, marginTop: 4 }}>
+                      {roleLabel(data.assignedOfficer.role)}
+                    </Text>
+                  </View>
+                ) : null}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    marginTop: 16
+                  }}
+                >
+                  {sinisterId != null ? (
+                    <Button
+                      mode="contained-tonal"
+                      compact
+                      icon="car"
+                      onPress={() => router.push(`/claim/${sinisterId}` as Href)}
+                    >
+                      Sinistre
+                    </Button>
+                  ) : null}
+                  {canViewEntityHistory(user.role) ? (
+                    <Button
+                      mode="outlined"
+                      compact
+                      icon="history"
+                      onPress={() =>
+                        router.push(`/history?entity_type=folder&entity_id=${data.id}` as Href)
+                      }
+                    >
+                      Historique
+                    </Button>
+                  ) : null}
+                </View>
+              </Surface>
 
           {canDefineScenario ? (
             <Card style={{ marginBottom: 12, borderColor: BrandColors.primary }} mode="outlined">
@@ -458,25 +550,7 @@ export default function FolderDetailScreen() {
             </Card>
           ) : null}
 
-          {data.assignedOfficer ? (
-            <Card style={{ marginBottom: 12 }} mode="outlined">
-              <Card.Content>
-                <Text
-                  variant="titleSmall"
-                  style={{ color: theme.colors.onSurfaceVariant, marginBottom: 4 }}
-                >
-                  Chargé de suivi
-                </Text>
-                <Text variant="bodyMedium">{displayUser(data.assignedOfficer)}</Text>
-                <Text
-                  variant="labelSmall"
-                  style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}
-                >
-                  {roleLabel(data.assignedOfficer.role)}
-                </Text>
-              </Card.Content>
-            </Card>
-          ) : canAssignFolderOfficer(user.role) && !data.is_closed ? (
+          {!data.assignedOfficer && canAssignFolderOfficer(user.role) && !data.is_closed ? (
             <Card style={{ marginBottom: 12 }} mode="outlined">
               <Card.Content>
                 <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 8 }}>
@@ -516,7 +590,11 @@ export default function FolderDetailScreen() {
               Clôturer le dossier
             </Button>
           ) : null}
+            </>
+          ) : null}
 
+          {mainTab === 'mid' && showMidTab ? (
+            <>
           {showRibCta ? (
             <Card style={{ marginBottom: 16, borderColor: BrandColors.primary }} mode="outlined">
               <Card.Content>
@@ -527,21 +605,18 @@ export default function FolderDetailScreen() {
                   variant="bodySmall"
                   style={{ color: theme.colors.onSurfaceVariant, marginBottom: 12, lineHeight: 20 }}
                 >
-                  Ce dossier est en perte totale. Importez un PDF ou une image de votre RIB ; il
-                  sera lié à l’étape (validation gestionnaire côté back-office).
+                  Perte totale : importez le RIB (image ou PDF). Validation possible côté gestion.
                 </Text>
                 {ribError ? (
                   <Text style={{ color: theme.colors.error, marginBottom: 8 }}>{ribError}</Text>
                 ) : null}
-                <Button
-                  mode="contained"
-                  buttonColor={BrandColors.primary}
-                  onPress={onDepositRib}
-                  loading={uploading}
+                <DocumentSourceField
+                  label="Importer le RIB"
+                  description="Photo, galerie ou fichier (PDF, image). Le RIB est lié au dossier après envoi."
+                  busy={uploading}
                   disabled={uploading}
-                >
-                  Choisir un fichier et envoyer
-                </Button>
+                  onPick={(f) => void onDepositRib(f)}
+                />
               </Card.Content>
             </Card>
           ) : null}
@@ -556,9 +631,8 @@ export default function FolderDetailScreen() {
                   variant="bodySmall"
                   style={{ color: theme.colors.onSurfaceVariant, marginBottom: 10, lineHeight: 20 }}
                 >
-                  RIB, pièce d’identité, attestation, signature : un envoi par fichier. Pour le RIB
-                  en perte totale, utilisez plutôt le bloc « Déposer votre RIB » ci-dessus lorsqu’il
-                  est affiché — l’étape dossier sera créée automatiquement.
+                  Un type de pièce, un envoi. RIB en perte totale : utilisez l’import RIB
+                  (onglet Pièces) lorsqu’il est proposé.
                 </Text>
                 <Menu
                   visible={insuredExtraMenu}
@@ -586,15 +660,17 @@ export default function FolderDetailScreen() {
                     />
                   ))}
                 </Menu>
-                <Button
-                  mode="contained"
-                  buttonColor={BrandColors.primary}
-                  onPress={() => void onInsuredSupplementUpload()}
-                  loading={insuredExtraBusy}
+                <DocumentSourceField
+                  label="Importer la pièce"
+                  description={`Type sélectionné : ${
+                    apiDocumentUploadTypesForRole('INSURED').find(
+                      (o) => o.value === insuredExtraType
+                    )?.label ?? insuredExtraType
+                  }. Choisissez la source (photo, galerie, fichier).`}
+                  busy={insuredExtraBusy}
                   disabled={insuredExtraBusy}
-                >
-                  Importer le fichier
-                </Button>
+                  onPick={(f) => void onInsuredSupplementUpload(f)}
+                />
               </Card.Content>
             </Card>
           ) : null}
@@ -610,50 +686,26 @@ export default function FolderDetailScreen() {
                     variant="bodySmall"
                     style={{ color: theme.colors.error, marginBottom: 8, lineHeight: 20 }}
                   >
-                    Enregistrez d’abord le scénario du dossier (bloc ci-dessus) pour utiliser les
-                    étapes pilotées (rapport, facture, RIB).
+                    Définissez d’abord le scénario du dossier (Aperçu), puis revenez ici.
                   </Text>
                 ) : null}
-                <Text
-                  variant="bodySmall"
-                  style={{ color: theme.colors.onSurfaceVariant, marginBottom: 8, lineHeight: 20 }}
-                >
-                  {addStepDocRule.required ? (
-                    <>
-                      L’étape choisie exige un identifiant de document : le type requis est rappelé
-                      ci-dessous (préselectionné pour l’import). Sinon l’id reste optionnel.
-                    </>
-                  ) : (
-                    <>
-                      L’id document est <Text style={{ fontWeight: '600' }}>optionnel</Text> pour ce
-                      type d’étape (ex. échéance). Utilisez le bloc import pour générer un id, ou
-                      laissez vide.
-                    </>
-                  )}
-                </Text>
+                <HelperText type="info" padding="none" style={{ marginBottom: 6 }}>
+                  {addStepDocRule.required
+                    ? 'Document requis (type indiqué). Import ci-dessous → id renseigné auto.'
+                    : 'Id document optionnel pour ce type. Import seulement si besoin d’un fichier.'}
+                </HelperText>
                 {addStepDocRule.required ? (
                   <Text
                     variant="labelLarge"
                     style={{ color: theme.colors.primary, marginBottom: 8, lineHeight: 20 }}
                   >
-                    Type attendu : {labelLinkedDocumentTypeForStep(addStepDocRule.apiDocumentType)}
+                    {labelLinkedDocumentTypeForStep(addStepDocRule.apiDocumentType)}
                   </Text>
                 ) : null}
                 {data.scenario ? (
                   <>
                     <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 4 }}>
                       Importer un document
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={{
-                        color: theme.colors.onSurfaceVariant,
-                        marginBottom: 8,
-                        lineHeight: 20
-                      }}
-                    >
-                      Type côté API, puis choix d’un PDF ou d’une image. Le champ id plus bas se
-                      remplit automatiquement.
                     </Text>
                     <Menu
                       visible={importTypeMenu}
@@ -680,15 +732,15 @@ export default function FolderDetailScreen() {
                         />
                       ))}
                     </Menu>
-                    <Button
-                      mode="outlined"
-                      onPress={() => void onImportWithSelectedType()}
-                      loading={stepImportBusy}
+                    <DocumentSourceField
+                      label="Importer le document (étape)"
+                      description={`Type d’enregistrement : ${
+                        docTypeOptions.find((o) => o.value === importDocType)?.label ?? importDocType
+                      }`}
+                      busy={stepImportBusy}
                       disabled={stepImportBusy || actionBusy}
-                      style={{ marginBottom: 12 }}
-                    >
-                      Importer le fichier
-                    </Button>
+                      onPick={(f) => void onImportStepDocument(f)}
+                    />
                   </>
                 ) : null}
                 <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 6 }}>
@@ -746,62 +798,10 @@ export default function FolderDetailScreen() {
               </Card.Content>
             </Card>
           ) : null}
+            </>
+          ) : null}
 
-          <Text variant="titleSmall" style={{ fontWeight: '600', marginBottom: 8 }}>
-            Étapes
-          </Text>
-          {(data.steps ?? []).length === 0 ? (
-            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-              Aucune étape enregistrée.
-            </Text>
-          ) : (
-            (data.steps ?? []).map((s, i) => (
-              <View key={s.id}>
-                {i > 0 ? <Divider style={{ marginVertical: 8 }} /> : null}
-                <View>
-                  <Text variant="labelLarge" style={{ color: BrandColors.primary }}>
-                    {labelFolderStepType(s.step_type ?? undefined)}
-                  </Text>
-                  <Text
-                    variant="bodySmall"
-                    style={{ color: theme.colors.onSurfaceVariant, marginTop: 2 }}
-                  >
-                    {formatDate(s.action_date)}
-                  </Text>
-                  {s.performedBy ? (
-                    <Text
-                      variant="labelSmall"
-                      style={{ marginTop: 4, color: theme.colors.outline }}
-                    >
-                      Par {displayUser(s.performedBy)}
-                    </Text>
-                  ) : null}
-                  {s.value ? (
-                    <Text variant="bodySmall" style={{ marginTop: 4 }}>
-                      {s.value}
-                    </Text>
-                  ) : null}
-                  {s.document_id != null || s.document != null ? (
-                    <Pressable
-                      onPress={() => {
-                        const did = s.document_id ?? s.document?.id
-                        if (did != null) {
-                          router.push(`/document/${did}` as Href)
-                        }
-                      }}
-                      style={{ marginTop: 6 }}
-                    >
-                      <Text variant="labelMedium" style={{ color: theme.colors.primary }}>
-                        Document
-                        {s.document?.is_validated === false ? ' (à valider)' : ''} — n°
-                        {s.document_id ?? s.document?.id}
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              </View>
-            ))
-          )}
+          {mainTab === 'parcours' ? <FolderStepTimeline steps={data.steps} /> : null}
         </>
       ) : !error ? (
         <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>

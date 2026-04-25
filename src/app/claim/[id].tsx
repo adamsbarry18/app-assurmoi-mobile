@@ -23,7 +23,8 @@ import {
   canDeclareOwnClaim
 } from '@/utils/roleAccess'
 import { BrandColors } from '@/constants/brand'
-import { pickDocumentFile } from '@/utils/pickDocument'
+import { DocumentSourceField } from '@/components/common/DocumentSourceField'
+import type { PickedDocumentFile } from '@/utils/pickDocument'
 import { buildDocumentMultipartForm } from '@/utils/documentFormData'
 
 type ClaimBody = SinisterDetailResponse['data']
@@ -100,16 +101,12 @@ export default function ClaimDetailScreen() {
   )
 
   const uploadObligatoryPiece = useCallback(
-    async (kind: 'cni' | 'grise' | 'att') => {
+    async (kind: 'cni' | 'grise' | 'att', asset: PickedDocumentFile) => {
       if (Number.isNaN(id) || id < 1) return
       setPieceBusy(kind)
       setError(null)
       setInfo(null)
       try {
-        const asset = await pickDocumentFile()
-        if (!asset) {
-          return
-        }
         const { uri, name, mime } = asset
         const spec =
           kind === 'cni'
@@ -294,39 +291,39 @@ export default function ClaimDetailScreen() {
                         <>Importez chaque type (dépôt), le sinistre est mis à jour.</>
                       )}
                     </Text>
-                    <Button
-                      mode="outlined"
-                      onPress={() => void uploadObligatoryPiece('cni')}
-                      loading={pieceBusy === 'cni'}
+                    <DocumentSourceField
+                      label={
+                        body.cni_driver != null
+                          ? `CNI / pièce d’identité (n°${body.cni_driver})`
+                          : 'CNI / pièce d’identité'
+                      }
+                      description="Touchez le champ, puis : photo, photothèque ou fichier."
+                      busy={pieceBusy === 'cni'}
                       disabled={pieceBusy != null}
-                      style={{ marginBottom: 8 }}
-                    >
-                      {body.cni_driver != null
-                        ? `Remplacer CNI (actuellement n°${body.cni_driver})`
-                        : 'Importer CNI / pièce d’identité'}
-                    </Button>
-                    <Button
-                      mode="outlined"
-                      onPress={() => void uploadObligatoryPiece('grise')}
-                      loading={pieceBusy === 'grise'}
+                      onPick={(f) => void uploadObligatoryPiece('cni', f)}
+                    />
+                    <DocumentSourceField
+                      label={
+                        body.vehicle_registration_doc_id != null
+                          ? `Carte grise (n°${body.vehicle_registration_doc_id})`
+                          : 'Carte grise'
+                      }
+                      description="Même principe : appareil photo, galerie ou fichier scanné."
+                      busy={pieceBusy === 'grise'}
                       disabled={pieceBusy != null}
-                      style={{ marginBottom: 8 }}
-                    >
-                      {body.vehicle_registration_doc_id != null
-                        ? `Remplacer carte grise (n°${body.vehicle_registration_doc_id})`
-                        : 'Importer la carte grise'}
-                    </Button>
-                    <Button
-                      mode="outlined"
-                      onPress={() => void uploadObligatoryPiece('att')}
-                      loading={pieceBusy === 'att'}
+                      onPick={(f) => void uploadObligatoryPiece('grise', f)}
+                    />
+                    <DocumentSourceField
+                      label={
+                        body.insurance_certificate_id != null
+                          ? `Attestation d’assurance (n°${body.insurance_certificate_id})`
+                          : 'Attestation d’assurance'
+                      }
+                      description="Photo de la charte, PDF ou autre format accepté."
+                      busy={pieceBusy === 'att'}
                       disabled={pieceBusy != null}
-                      style={{ marginBottom: 8 }}
-                    >
-                      {body.insurance_certificate_id != null
-                        ? `Remplacer attestation (n°${body.insurance_certificate_id})`
-                        : 'Importer l’attestation d’assurance'}
-                    </Button>
+                      onPick={(f) => void uploadObligatoryPiece('att', f)}
+                    />
                   </>
                 ) : null}
                 {body.cni_driver != null ? (

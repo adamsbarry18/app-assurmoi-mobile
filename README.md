@@ -104,6 +104,7 @@ app-assurmoi-mobile/
 
 - **Authentification** : jetons d’accès / rafraîchissement stockés côté client ; requêtes via `apiFetchWithAuth` (rafraîchissement automatique en cas de 401).
 - **Deep links** (reset mot de passe, etc.) : schéma **`assurmoiapp`** défini dans `app.json` — doit rester aligné avec les liens générés par l’API (e-mail).
+- **Import de pièces** (sinistre, dossier) : le composant `DocumentSourceField` propose un champ qui ouvre **Prendre une photo** (iOS / Android, pas le web), **Bibliothèque photos** ou **Fichier** (PDF / images, `expo-document-picker`). Les libellés de permission caméra / photothèque sont dans `app.json` (plugin `expo-image-picker`).
 
 ---
 
