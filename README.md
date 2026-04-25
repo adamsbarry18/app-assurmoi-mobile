@@ -1,4 +1,4 @@
-# AssurMoi — application mobile
+# AssurMoi : application mobile
 
 Client **React Native** ([Expo SDK 54](https://docs.expo.dev/)) pour l’espace assuré et les équipes sinistres : connexion sécurisée (JWT), tableau de bord, sinistres, dossiers, documents, notifications, administration des utilisateurs selon les rôles.
 
@@ -14,15 +14,20 @@ Client **React Native** ([Expo SDK 54](https://docs.expo.dev/)) pour l’espace 
 
 - **Node.js** v20+ et **npm** v10+
 - Compte développeur Apple / environnement Android si vous ciblez des émulateurs ou un appareil physique
-- **API AssurMoi** démarrée (voir le dépôt backend) pour les flux authentifiés
+- **API AssurMoi** démarrée (voir le dépôt [app-assurmoi-API](https://github.com/adamsbarry18/app-assurmoi-API.node))
 
 ---
 
 ## Installation
 
 ```bash
+git clone https://github.com/adamsbarry18/app-assurmoi-mobile.git
 cd app-assurmoi-mobile
 npm install
+npm run start
+npm run android
+npm run ios
+npm run web
 ```
 
 Copier la configuration d’exemple :
@@ -104,7 +109,7 @@ app-assurmoi-mobile/
 ## Lier le dépôt à l’API
 
 1. Démarrer l’**API** (port **3000** par défaut).
-2. Renseigner **`EXPO_PUBLIC_API_URL`** dans `.env` si les défauts ne conviennent pas.
+2. Renseigner **`EXPO_PUBLIC_API_URL`** dans `.env` si les défauts ne conviennent pas. exemple : http://localhost:3000
 3. Se connecter avec un compte connu (ex. comptes de seed sur l’environnement de dev du backend, si disponibles).
 
 Le backend **doit** accepter l’origine de votre app en **CORS** en développement (l’API AssurMoi le permet en principe) ; en production, configurer `CORS_ALLOWED_ORIGINS` côté serveur.
@@ -116,9 +121,7 @@ Le backend **doit** accepter l’origine de votre app en **CORS** en développem
 - [Expo](https://docs.expo.dev/)
 - [Expo Router](https://docs.expo.dev/router/introduction/)
 - [React Native Paper](https://callstack.github.io/react-native-paper/)
+- [App AssurMoi API](https://github.com/adamsbarry18/app-assurmoi-API.node)
+- [App AssurMoi Mobile](https://github.com/adamsbarry18/app-assurmoi-mobile)
 
 ---
-
-## Licence
-
-Projet **privé** (champ `private: true` dans `package.json`).
